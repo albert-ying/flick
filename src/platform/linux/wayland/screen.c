@@ -119,6 +119,13 @@ void way_screen_draw_box(struct screen *scr, int x, int y, int w, int h, const c
 	scr->boxes[scr->nr_boxes++] = create_surface(scr, x, y, w, h, 0);
 }
 
+/* Fallback: draw cursor as a box on Wayland */
+void way_screen_draw_cursor(struct screen *scr, int x, int y, int size,
+			    const char *fill_color, const char *border_color,
+			    int border_size)
+{
+	way_screen_draw_box(scr, x, y, size, size, fill_color);
+}
 
 void way_screen_get_dimensions(struct screen *scr, int *w, int *h)
 {

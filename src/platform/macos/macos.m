@@ -51,6 +51,48 @@ void macos_draw_text(struct screen *scr, NSColor *col, const char *font,
 	[str drawAtPoint:NSMakePoint((float)x, (float)y) withAttributes: attrs];
 }
 
+void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
+		       float x, float y, float size, float border_size)
+{
+	/*
+	 * Arrow cursor shape - 6 vertices, proportional to size.
+	 * Tip at (0,0), arrow extends down and to the right.
+	 */
+	static const float shape[][2] = {
+		{0.000, 0.000},   /* tip */
+		{0.000, 1.000},   /* left edge bottom */
+		{0.294, 0.706},   /* inner notch */
+		{0.471, 1.176},   /* tail bottom */
+		{0.353, 0.588},   /* outer notch */
+		{0.647, 0.000},   /* right edge */
+	};
+	const int n = 6;
+
+	/* Convert ULO -> LLO: macOS y increases upward */
+	float base_y = scr->h - y;
+
+	NSBezierPath *path = [NSBezierPath bezierPath];
+	[path moveToPoint:NSMakePoint(x + shape[0][0] * size,
+				      base_y - shape[0][1] * size)];
+
+	for (int i = 1; i < n; i++)
+		[path lineToPoint:NSMakePoint(x + shape[i][0] * size,
+					      base_y - shape[i][1] * size)];
+	[path closePath];
+
+	/* Draw border (stroke underneath fill) */
+	if (border_size > 0) {
+		[border setStroke];
+		[path setLineWidth:border_size * 2.0];
+		[path setLineJoinStyle:NSLineJoinStyleMiter];
+		[path stroke];
+	}
+
+	/* Draw fill */
+	[fill setFill];
+	[path fill];
+}
+
 void macos_draw_box(struct screen *scr, NSColor *col, float x, float y, float w, float h, float r)
 {
 	[col setFill];
@@ -182,6 +224,7 @@ static void *mainloop(void *arg)
 		.mouse_up = osx_mouse_up,
 		.screen_clear = osx_screen_clear,
 		.screen_draw_box = osx_screen_draw_box,
+		.screen_draw_cursor = osx_screen_draw_cursor,
 		.screen_get_dimensions = osx_screen_get_dimensions,
 		.screen_list = osx_screen_list,
 		.scroll = osx_scroll,

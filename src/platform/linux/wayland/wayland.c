@@ -232,6 +232,7 @@ void wayland_init(struct platform *platform)
 	platform->mouse_up = way_mouse_up;
 	platform->screen_clear = way_screen_clear;
 	platform->screen_draw_box = way_screen_draw_box;
+	platform->screen_draw_cursor = way_screen_draw_cursor;
 	platform->screen_get_dimensions = way_screen_get_dimensions;
 	platform->screen_list = way_screen_list;
 	platform->scroll = way_scroll;

@@ -103,6 +103,14 @@ static void screen_draw_box(screen_t scr, int x, int y, int w, int h, const char
 	wn_screen_add_box(scr, x, y, w, h, str_to_colorref(color));
 }
 
+/* Fallback: draw cursor as a box on Windows */
+static void screen_draw_cursor(screen_t scr, int x, int y, int size,
+				const char *fill_color, const char *border_color,
+				int border_size)
+{
+	screen_draw_box(scr, x, y, size, size, fill_color);
+}
+
 static struct input_event *input_next_event(int timeout)
 {
 	MSG msg;
@@ -453,6 +461,7 @@ void platform_run(int (*main)(struct platform *platform))
 	platform.init_hint = init_hint;
 	platform.hint_draw = hint_draw;
 	platform.screen_draw_box = screen_draw_box;
+	platform.screen_draw_cursor = screen_draw_cursor;
 	platform.input_next_event = input_next_event;
 	platform.input_wait = input_wait;
 	platform.screen_clear = screen_clear;

@@ -90,3 +90,11 @@ void x_screen_draw_box(struct screen *scr, int x, int y, int w, int h, const cha
 	XRaiseWindow(dpy, box->win);
 }
 
+/* Fallback: draw cursor as a box on X11 */
+void x_screen_draw_cursor(struct screen *scr, int x, int y, int size,
+			   const char *fill_color, const char *border_color,
+			   int border_size)
+{
+	x_screen_draw_box(scr, x, y, size, size, fill_color);
+}
+

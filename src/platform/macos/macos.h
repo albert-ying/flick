@@ -38,6 +38,17 @@ struct box {
 	NSColor *color;
 };
 
+struct cursor_draw_data {
+	int x;
+	int y;
+	int size;
+	int border_size;
+
+	struct screen *scr;
+	NSColor *fill_color;
+	NSColor *border_color;
+};
+
 size_t nr_boxes;
 
 struct drawing_hook {
@@ -66,6 +77,8 @@ struct screen {
 	struct box boxes[MAX_BOXES];
 	size_t nr_boxes;
 
+	struct cursor_draw_data cursor;
+
 	struct window *overlay;
 
 };
@@ -88,6 +101,9 @@ void macos_init_screen();
 
 void macos_draw_box(struct screen *scr, NSColor *col, float x, float y, float w,
 		    float h, float r);
+
+void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
+		       float x, float y, float size, float border_size);
 
 void macos_draw_text(struct screen *scr, NSColor *col, const char *font, int x,
 		     int y, int w, int h, const char *s);
@@ -115,6 +131,7 @@ void osx_mouse_show();
 void osx_mouse_hide();
 void osx_screen_get_dimensions(screen_t scr, int *w, int *h);
 void osx_screen_draw_box(screen_t scr, int x, int y, int w, int h, const char *color);
+void osx_screen_draw_cursor(screen_t scr, int x, int y, int size, const char *fill_color, const char *border_color, int border_size);
 void osx_screen_clear(screen_t scr);
 void osx_screen_list(screen_t scr[MAX_SCREENS], size_t *n);
 void osx_init_hint(const char *bg, const char *fg, int border_radius, const char *font_family);

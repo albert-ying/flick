@@ -30,6 +30,30 @@ void osx_screen_draw_box(struct screen *scr, int x, int y, int w, int h, const c
 	window_register_draw_hook(scr->overlay, draw_hook, b);
 }
 
+static void cursor_draw_hook(void *arg, NSView *view)
+{
+	struct cursor_draw_data *c = arg;
+	macos_draw_cursor(c->scr, c->fill_color, c->border_color,
+			  c->x, c->y, c->size, c->border_size);
+}
+
+void osx_screen_draw_cursor(struct screen *scr, int x, int y, int size,
+			    const char *fill_color, const char *border_color,
+			    int border_size)
+{
+	struct cursor_draw_data *c = &scr->cursor;
+
+	c->x = x;
+	c->y = y;
+	c->size = size;
+	c->border_size = border_size;
+	c->scr = scr;
+	c->fill_color = nscolor_from_hex(fill_color);
+	c->border_color = nscolor_from_hex(border_color);
+
+	window_register_draw_hook(scr->overlay, cursor_draw_hook, c);
+}
+
 void osx_screen_list(struct screen *rscreens[MAX_SCREENS], size_t *n)
 {
 	size_t i;

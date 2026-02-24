@@ -69,10 +69,12 @@ static void redraw(int mx, int my, int force)
 		  x+gbsz, y+gbsz,
 		  gw-gbsz*2, gh-gbsz*2);
 
-	platform->screen_draw_box(scr,
+	platform->screen_draw_cursor(scr,
 			x+gw/2-cursz/2, y+gh/2-cursz/2,
-			cursz, cursz,
-			config_get("cursor_color"));
+			cursz,
+			config_get("cursor_color"),
+			config_get("cursor_border_color"),
+			config_get_int("cursor_border_size"));
 
 	platform->commit();
 }
