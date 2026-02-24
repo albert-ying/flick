@@ -83,6 +83,7 @@ struct window *create_overlay_window(int x, int y, int w, int h)
 	[nsWin setBackgroundColor:[NSColor clearColor]];
 	[nsWin makeKeyAndOrderFront:nil];
 	[nsWin setLevel:NSMainMenuWindowLevel + 999];
+	[nsWin setIgnoresMouseEvents:YES];
 
 	win->win = nsWin;
 

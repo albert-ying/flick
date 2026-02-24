@@ -54,43 +54,56 @@ void macos_draw_text(struct screen *scr, NSColor *col, const char *font,
 void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
 		       float x, float y, float size, float border_size)
 {
-	/*
-	 * Arrow cursor shape - 6 vertices, proportional to size.
-	 * Tip at (0,0), arrow extends down and to the right.
-	 */
-	static const float shape[][2] = {
-		{0.000, 0.000},   /* tip */
-		{0.000, 1.000},   /* left edge bottom */
-		{0.294, 0.706},   /* inner notch */
-		{0.471, 1.176},   /* tail bottom */
-		{0.353, 0.588},   /* outer notch */
-		{0.647, 0.000},   /* right edge */
-	};
-	const int n = 6;
-
 	/* Convert ULO -> LLO: macOS y increases upward */
-	float base_y = scr->h - y;
+	float cx = x;
+	float cy = scr->h - y;
 
-	NSBezierPath *path = [NSBezierPath bezierPath];
-	[path moveToPoint:NSMakePoint(x + shape[0][0] * size,
-				      base_y - shape[0][1] * size)];
+	/* Pulsing glow: modulate radius with a sine wave (~3 Hz) */
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	double t = ts.tv_sec + ts.tv_nsec / 1e9;
+	float pulse = 1.0 + 0.15 * sin(t * 3.0 * 2.0 * M_PI);
 
-	for (int i = 1; i < n; i++)
-		[path lineToPoint:NSMakePoint(x + shape[i][0] * size,
-					      base_y - shape[i][1] * size)];
-	[path closePath];
+	float glow_radius = size * pulse;
+	float core_radius = size * 0.35;
 
-	/* Draw border (stroke underneath fill) */
+	/* 1. Outer glow: radial gradient from fill color center to transparent edge */
+	NSGradient *gradient = [[NSGradient alloc]
+		initWithColors:@[
+			[fill colorWithAlphaComponent:0.5],
+			[fill colorWithAlphaComponent:0.0]
+		]];
+	NSRect glowRect = NSMakeRect(cx - glow_radius, cy - glow_radius,
+				     glow_radius * 2, glow_radius * 2);
+	NSBezierPath *glowPath = [NSBezierPath bezierPathWithOvalInRect:glowRect];
+	[gradient drawInBezierPath:glowPath relativeCenterPosition:NSMakePoint(0, 0)];
+
+	/* 2. Core dot: solid filled circle */
+	NSRect coreRect = NSMakeRect(cx - core_radius, cy - core_radius,
+				     core_radius * 2, core_radius * 2);
+	NSBezierPath *corePath = [NSBezierPath bezierPathWithOvalInRect:coreRect];
+	[fill setFill];
+	[corePath fill];
+
+	/* 3. Border ring around the core */
 	if (border_size > 0) {
 		[border setStroke];
-		[path setLineWidth:border_size * 2.0];
-		[path setLineJoinStyle:NSLineJoinStyleMiter];
-		[path stroke];
+		[corePath setLineWidth:border_size];
+		[corePath stroke];
 	}
+}
 
-	/* Draw fill */
-	[fill setFill];
-	[path fill];
+void macos_draw_circle(struct screen *scr, NSColor *color,
+		       float cx, float cy, float radius, float thickness)
+{
+	/* Convert ULO -> LLO */
+	float ly = scr->h - cy;
+
+	NSRect rect = NSMakeRect(cx - radius, ly - radius, radius * 2, radius * 2);
+	NSBezierPath *path = [NSBezierPath bezierPathWithOvalInRect:rect];
+	[color setStroke];
+	[path setLineWidth:thickness];
+	[path stroke];
 }
 
 void macos_draw_box(struct screen *scr, NSColor *col, float x, float y, float w, float h, float r)
@@ -224,6 +237,7 @@ static void *mainloop(void *arg)
 		.mouse_up = osx_mouse_up,
 		.screen_clear = osx_screen_clear,
 		.screen_draw_box = osx_screen_draw_box,
+		.screen_draw_circle = osx_screen_draw_circle,
 		.screen_draw_cursor = osx_screen_draw_cursor,
 		.screen_get_dimensions = osx_screen_get_dimensions,
 		.screen_list = osx_screen_list,

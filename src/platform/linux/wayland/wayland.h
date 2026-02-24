@@ -118,6 +118,7 @@ void way_mouse_hide();
 void way_screen_get_dimensions(screen_t scr, int *w, int *h);
 void way_screen_draw_box(screen_t scr, int x, int y, int w, int h, const char *color);
 void way_screen_draw_cursor(screen_t scr, int x, int y, int size, const char *fill_color, const char *border_color, int border_size);
+void way_screen_draw_circle(screen_t scr, int cx, int cy, int radius, int thickness, const char *color);
 void way_screen_clear(screen_t scr);
 void way_screen_list(screen_t scr[MAX_SCREENS], size_t *n);
 void way_init_hint(const char *bg, const char *fg, int border_radius, const char *font_family);

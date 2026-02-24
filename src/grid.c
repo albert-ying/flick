@@ -70,7 +70,7 @@ static void redraw(int mx, int my, int force)
 		  gw-gbsz*2, gh-gbsz*2);
 
 	platform->screen_draw_cursor(scr,
-			x+gw/2-cursz/2, y+gh/2-cursz/2,
+			x+gw/2, y+gh/2,
 			cursz,
 			config_get("cursor_color"),
 			config_get("cursor_border_color"),

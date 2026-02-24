@@ -98,3 +98,9 @@ void x_screen_draw_cursor(struct screen *scr, int x, int y, int size,
 	x_screen_draw_box(scr, x, y, size, size, fill_color);
 }
 
+/* No-op: circle drawing not implemented on X11 */
+void x_screen_draw_circle(struct screen *scr, int cx, int cy, int radius,
+			   int thickness, const char *color)
+{
+}
+

@@ -49,6 +49,16 @@ struct cursor_draw_data {
 	NSColor *border_color;
 };
 
+struct circle_draw_data {
+	int cx;
+	int cy;
+	int radius;
+	int thickness;
+
+	struct screen *scr;
+	NSColor *color;
+};
+
 size_t nr_boxes;
 
 struct drawing_hook {
@@ -62,6 +72,8 @@ struct window {
 	size_t nr_hooks;
 	struct drawing_hook hooks[MAX_DRAWING_HOOKS];
 };
+
+#define MAX_CIRCLES 8
 
 struct screen {
 	/* LLO */
@@ -78,6 +90,9 @@ struct screen {
 	size_t nr_boxes;
 
 	struct cursor_draw_data cursor;
+
+	struct circle_draw_data circles[MAX_CIRCLES];
+	size_t nr_circles;
 
 	struct window *overlay;
 
@@ -104,6 +119,9 @@ void macos_draw_box(struct screen *scr, NSColor *col, float x, float y, float w,
 
 void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
 		       float x, float y, float size, float border_size);
+
+void macos_draw_circle(struct screen *scr, NSColor *color,
+		       float cx, float cy, float radius, float thickness);
 
 void macos_draw_text(struct screen *scr, NSColor *col, const char *font, int x,
 		     int y, int w, int h, const char *s);
@@ -132,6 +150,7 @@ void osx_mouse_hide();
 void osx_screen_get_dimensions(screen_t scr, int *w, int *h);
 void osx_screen_draw_box(screen_t scr, int x, int y, int w, int h, const char *color);
 void osx_screen_draw_cursor(screen_t scr, int x, int y, int size, const char *fill_color, const char *border_color, int border_size);
+void osx_screen_draw_circle(screen_t scr, int cx, int cy, int radius, int thickness, const char *color);
 void osx_screen_clear(screen_t scr);
 void osx_screen_list(screen_t scr[MAX_SCREENS], size_t *n);
 void osx_init_hint(const char *bg, const char *fg, int border_radius, const char *font_family);

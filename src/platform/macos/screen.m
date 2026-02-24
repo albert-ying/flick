@@ -54,6 +54,28 @@ void osx_screen_draw_cursor(struct screen *scr, int x, int y, int size,
 	window_register_draw_hook(scr->overlay, cursor_draw_hook, c);
 }
 
+static void circle_draw_hook(void *arg, NSView *view)
+{
+	struct circle_draw_data *c = arg;
+	macos_draw_circle(c->scr, c->color, c->cx, c->cy, c->radius, c->thickness);
+}
+
+void osx_screen_draw_circle(struct screen *scr, int cx, int cy, int radius,
+			    int thickness, const char *color)
+{
+	assert(scr->nr_circles < MAX_CIRCLES);
+	struct circle_draw_data *c = &scr->circles[scr->nr_circles++];
+
+	c->cx = cx;
+	c->cy = cy;
+	c->radius = radius;
+	c->thickness = thickness;
+	c->scr = scr;
+	c->color = nscolor_from_hex(color);
+
+	window_register_draw_hook(scr->overlay, circle_draw_hook, c);
+}
+
 void osx_screen_list(struct screen *rscreens[MAX_SCREENS], size_t *n)
 {
 	size_t i;
@@ -67,6 +89,7 @@ void osx_screen_list(struct screen *rscreens[MAX_SCREENS], size_t *n)
 void osx_screen_clear(struct screen *scr)
 {
 	scr->nr_boxes = 0;
+	scr->nr_circles = 0;
 	scr->overlay->nr_hooks = 0;
 }
 

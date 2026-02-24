@@ -127,6 +127,12 @@ void way_screen_draw_cursor(struct screen *scr, int x, int y, int size,
 	way_screen_draw_box(scr, x, y, size, size, fill_color);
 }
 
+/* No-op: circle drawing not implemented on Wayland */
+void way_screen_draw_circle(struct screen *scr, int cx, int cy, int radius,
+			    int thickness, const char *color)
+{
+}
+
 void way_screen_get_dimensions(struct screen *scr, int *w, int *h)
 {
 	*w = scr->w;

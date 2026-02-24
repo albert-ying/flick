@@ -111,6 +111,12 @@ static void screen_draw_cursor(screen_t scr, int x, int y, int size,
 	screen_draw_box(scr, x, y, size, size, fill_color);
 }
 
+/* No-op: circle drawing not implemented on Windows */
+static void screen_draw_circle(screen_t scr, int cx, int cy, int radius,
+				int thickness, const char *color)
+{
+}
+
 static struct input_event *input_next_event(int timeout)
 {
 	MSG msg;
@@ -461,6 +467,7 @@ void platform_run(int (*main)(struct platform *platform))
 	platform.init_hint = init_hint;
 	platform.hint_draw = hint_draw;
 	platform.screen_draw_box = screen_draw_box;
+	platform.screen_draw_circle = screen_draw_circle;
 	platform.screen_draw_cursor = screen_draw_cursor;
 	platform.input_next_event = input_next_event;
 	platform.input_wait = input_wait;

@@ -5,6 +5,21 @@
  */
 
 #include "warpd.h"
+#include <math.h>
+
+/* Click effect animation state */
+static int click_fx_active = 0;
+static uint64_t click_fx_start = 0;
+static int click_fx_x, click_fx_y;
+
+#define CLICK_FX_DURATION_MS 300
+
+static uint64_t get_monotonic_ms()
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
 
 static void redraw(screen_t scr, int x, int y, int hide_cursor)
 {
@@ -27,6 +42,32 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor)
 		platform->screen_draw_cursor(scr, x, y,
 				cursz, curcol, curborder, curbordersz);
 
+	/* Draw click effect expanding ring */
+	if (click_fx_active && platform->screen_draw_circle) {
+		uint64_t now = get_monotonic_ms();
+		uint64_t elapsed = now - click_fx_start;
+
+		if (elapsed < CLICK_FX_DURATION_MS) {
+			double t = (double)elapsed / CLICK_FX_DURATION_MS;
+			int radius = cursz + (int)(t * cursz * 4);
+			int alpha = (int)((1.0 - t) * 0.8 * 255);
+			if (alpha < 0) alpha = 0;
+			if (alpha > 255) alpha = 255;
+
+			const char *base_color = config_get("click_effect_color");
+			/* Build RGBA hex: base color + computed alpha */
+			char rgba[16];
+			const char *src = base_color;
+			if (*src == '#') src++;
+			snprintf(rgba, sizeof rgba, "#%.6s%02X", src, alpha);
+
+			platform->screen_draw_circle(scr,
+				click_fx_x, click_fx_y,
+				radius, 2, rgba);
+		} else {
+			click_fx_active = 0;
+		}
+	}
 
 	if (!strcmp(indicator, "bottomleft"))
 		platform->screen_draw_box(scr, gap, sh-indicator_size-gap, indicator_size, indicator_size, indicator_color);
@@ -44,6 +85,14 @@ static void move(screen_t scr, int x, int y, int hide_cursor)
 {
 	platform->mouse_move(scr, x, y);
 	redraw(scr, x, y, hide_cursor);
+}
+
+static void start_click_fx(int x, int y)
+{
+	click_fx_active = 1;
+	click_fx_start = get_monotonic_ms();
+	click_fx_x = x;
+	click_fx_y = y;
 }
 
 struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
@@ -103,6 +152,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		platform->mouse_hide();
 
 	mouse_reset();
+	click_fx_active = 0;
 	redraw(scr, mx, my, !show_cursor);
 
 	uint64_t time = 0;
@@ -130,6 +180,10 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				last_blink_update = time;
 			}
 		}
+
+		/* Redraw while click effect is active to animate the ring */
+		if (click_fx_active)
+			redraw(scr, mx, my, !show_cursor);
 
 		scroll_tick();
 		if (mouse_process_key(ev, "up", "down", "left", "right")) {
@@ -223,9 +277,11 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				hist_add(mx, my);
 				histfile_add(mx, my);
 				platform->mouse_click(btn);
+				start_click_fx(mx, my);
 			} else if ((btn = config_input_match(ev, "oneshot_buttons"))) {
 				hist_add(mx, my);
 				platform->mouse_click(btn);
+				start_click_fx(mx, my);
 
 				const int timeout = config_get_int("oneshot_timeout");
 

@@ -59,6 +59,7 @@ static struct {
 	{ "cursor_border_color", "#000000", "The border color of the pointer in normal mode (rgba hex value).", OPT_STRING },
 	{ "cursor_border_size", "2", "The border thickness of the pointer in normal mode.", OPT_INT },
 
+	{ "click_effect_color", "#FF4500", "The color of the expanding ring click effect (rgba hex value).", OPT_STRING },
 	{ "cursor_size", "7", "The height of the pointer in normal mode.", OPT_INT },
 	{ "repeat_interval", "20", "The number of milliseconds before repeating a movement event.", OPT_INT },
 	{ "speed", "220", "Pointer speed in pixels/second.", OPT_INT },
