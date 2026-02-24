@@ -186,7 +186,8 @@ static int sift()
 	const char *chars = config_get("hint2_chars");
 	size_t chars_len= strlen(chars);
 
-	int grid_sz = config_get_int("hint2_grid_size");
+	int grid_nr = config_get_int("hint2_grid_nr");
+	int grid_nc = config_get_int("hint2_grid_nc");
 
 	int x, y;
 	int sh, sw;
@@ -204,12 +205,12 @@ static int sift()
 	gap = (gap * sh) / 1000;
 	hint_sz = (hint_sz * sh) / 1000;
 
-	x -= ((hint_sz + (gap - 1)) * grid_sz) / 2;
-	y -= ((hint_sz + (gap - 1)) * grid_sz) / 2;
+	x -= ((hint_sz + (gap - 1)) * grid_nc) / 2;
+	y -= ((hint_sz + (gap - 1)) * grid_nr) / 2;
 
-	for (col = 0; col < grid_sz; col++)
-		for (row = 0; row < grid_sz; row++) {
-			size_t idx = (row * grid_sz) + col;
+	for (col = 0; col < grid_nc; col++)
+		for (row = 0; row < grid_nr; row++) {
+			size_t idx = (row * grid_nc) + col;
 
 			if (idx < chars_len) {
 				hints[n].x = x + (hint_sz + gap) * col;

@@ -52,17 +52,17 @@ void macos_draw_text(struct screen *scr, NSColor *col, const char *font,
 }
 
 void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
-		       float x, float y, float size, float border_size)
+		       float x, float y, float size, float border_size, float pulse_hz)
 {
 	/* Convert ULO -> LLO: macOS y increases upward */
 	float cx = x;
 	float cy = scr->h - y;
 
-	/* Pulsing glow: modulate radius with a sine wave (~3 Hz) */
+	/* Pulsing glow: modulate radius with a sine wave at pulse_hz */
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	double t = ts.tv_sec + ts.tv_nsec / 1e9;
-	float pulse = 1.0 + 0.15 * sin(t * 3.0 * 2.0 * M_PI);
+	float pulse = 1.0 + 0.15 * sin(t * pulse_hz * 2.0 * M_PI);
 
 	float glow_radius = size * pulse;
 	float core_radius = size * 0.35;

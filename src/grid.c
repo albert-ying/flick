@@ -74,7 +74,8 @@ static void redraw(int mx, int my, int force)
 			cursz,
 			config_get("cursor_color"),
 			config_get("cursor_border_color"),
-			config_get_int("cursor_border_size"));
+			config_get_int("cursor_border_size"),
+			3.0);
 
 	platform->commit();
 }

@@ -21,7 +21,7 @@ static uint64_t get_monotonic_ms()
 	return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-static void redraw(screen_t scr, int x, int y, int hide_cursor)
+static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 {
 	int sw, sh;
 
@@ -30,17 +30,34 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor)
 	const int gap = 10;
 	const int indicator_size = (config_get_int("indicator_size") * sh) / 1080;
 	const char *indicator_color = config_get("indicator_color");
-	const char *curcol = config_get("cursor_color");
 	const char *curborder = config_get("cursor_border_color");
 	const int curbordersz = config_get_int("cursor_border_size");
 	const char *indicator = config_get("indicator");
 	const int cursz = config_get_int("cursor_size");
 
+	/* Color priority: scroll > drag > normal */
+	const char *curcol;
+	float pulse_hz = 3.0;
+	if (scroll_is_active()) {
+		curcol = config_get("scroll_cursor_color");
+	} else if (dragging) {
+		curcol = config_get("drag_cursor_color");
+		pulse_hz = 5.0;
+	} else {
+		curcol = config_get("cursor_color");
+	}
+
 	platform->screen_clear(scr);
 
 	if (!hide_cursor)
 		platform->screen_draw_cursor(scr, x, y,
-				cursz, curcol, curborder, curbordersz);
+				cursz, curcol, curborder, curbordersz, pulse_hz);
+
+	/* Sentinel ring while dragging */
+	if (dragging && !hide_cursor && platform->screen_draw_circle) {
+		platform->screen_draw_circle(scr, x, y,
+			cursz * 2, 1, config_get("drag_indicator_color"));
+	}
 
 	/* Draw click effect expanding ring */
 	if (click_fx_active && platform->screen_draw_circle) {
@@ -81,10 +98,10 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor)
 	platform->commit();
 }
 
-static void move(screen_t scr, int x, int y, int hide_cursor)
+static void move(screen_t scr, int x, int y, int hide_cursor, int dragging)
 {
 	platform->mouse_move(scr, x, y);
-	redraw(scr, x, y, hide_cursor);
+	redraw(scr, x, y, hide_cursor, dragging);
 }
 
 static void start_click_fx(int x, int y)
@@ -153,7 +170,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 
 	mouse_reset();
 	click_fx_active = 0;
-	redraw(scr, mx, my, !show_cursor);
+	redraw(scr, mx, my, !show_cursor, dragging);
 
 	uint64_t time = 0;
 	uint64_t last_blink_update = 0;
@@ -172,29 +189,29 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		if (!system_cursor && on_time) {
 			if (show_cursor && (time - last_blink_update) >= on_time) {
 				show_cursor = 0;
-				redraw(scr, mx, my, !show_cursor);
+				redraw(scr, mx, my, !show_cursor, dragging);
 				last_blink_update = time;
 			} else if (!show_cursor && (time - last_blink_update) >= off_time) {
 				show_cursor = 1;
-				redraw(scr, mx, my, !show_cursor);
+				redraw(scr, mx, my, !show_cursor, dragging);
 				last_blink_update = time;
 			}
 		}
 
 		/* Redraw while click effect is active to animate the ring */
 		if (click_fx_active)
-			redraw(scr, mx, my, !show_cursor);
+			redraw(scr, mx, my, !show_cursor, dragging);
 
 		scroll_tick();
 		if (mouse_process_key(ev, "up", "down", "left", "right")) {
-			redraw(scr, mx, my, !show_cursor);
+			redraw(scr, mx, my, !show_cursor, dragging);
 			continue;
 		}
 
 		if (!ev)  {
 			continue;
 		} else if (config_input_match(ev, "scroll_down")) {
-			redraw(scr, mx, my, 1);
+			redraw(scr, mx, my, !show_cursor, dragging);
 
 			if (ev->pressed) {
 				scroll_stop();
@@ -202,7 +219,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			} else
 				scroll_decelerate();
 		} else if (config_input_match(ev, "scroll_up")) {
-			redraw(scr, mx, my, 1);
+			redraw(scr, mx, my, !show_cursor, dragging);
 
 			if (ev->pressed) {
 				scroll_stop();
@@ -224,26 +241,26 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		}
 
 		if (config_input_match(ev, "top"))
-			move(scr, mx, cursz / 2, !show_cursor);
+			move(scr, mx, cursz / 2, !show_cursor, dragging);
 		else if (config_input_match(ev, "bottom"))
-			move(scr, mx, sh - cursz / 2, !show_cursor);
+			move(scr, mx, sh - cursz / 2, !show_cursor, dragging);
 		else if (config_input_match(ev, "middle"))
-			move(scr, mx, sh / 2, !show_cursor);
+			move(scr, mx, sh / 2, !show_cursor, dragging);
 		else if (config_input_match(ev, "start"))
-			move(scr, 1, my, !show_cursor);
+			move(scr, 1, my, !show_cursor, dragging);
 		else if (config_input_match(ev, "end"))
-			move(scr, sw - cursz, my, !show_cursor);
+			move(scr, sw - cursz, my, !show_cursor, dragging);
 		else if (config_input_match(ev, "hist_back")) {
 			hist_add(mx, my);
 			hist_prev();
 			hist_get(&mx, &my);
 
-			move(scr, mx, my, !show_cursor);
+			move(scr, mx, my, !show_cursor, dragging);
 		} else if (config_input_match(ev, "hist_forward")) {
 			hist_next();
 			hist_get(&mx, &my);
 
-			move(scr, mx, my, !show_cursor);
+			move(scr, mx, my, !show_cursor, dragging);
 		} else if (config_input_match(ev, "drag")) {
 			dragging = !dragging;
 			if (dragging)

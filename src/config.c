@@ -104,6 +104,12 @@ static struct {
 	{ "hint2_size", "20", "The size of hints in the secondary grid (range: 1-1000).", OPT_INT },
 	{ "hint2_gap_size", "1", "The spacing between hints in the secondary grid. (range: 1-1000)", OPT_INT },
 	{ "hint2_grid_size", "3", "The size of the secondary grid.", OPT_INT },
+	{ "hint2_grid_nr", "3", "Number of rows in the secondary grid.", OPT_INT },
+	{ "hint2_grid_nc", "3", "Number of columns in the secondary grid.", OPT_INT },
+
+	{ "drag_cursor_color", "#D4831E", "Cursor color while dragging.", OPT_STRING },
+	{ "drag_indicator_color", "#D4831E66", "Ring indicator color while dragging.", OPT_STRING },
+	{ "scroll_cursor_color", "#4E9A82", "Cursor color while scrolling.", OPT_STRING },
 
 	{ "screen_chars", "jkl;asdfg", "The characters used for screen selection.", OPT_STRING },
 
