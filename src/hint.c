@@ -330,10 +330,6 @@ int history_hint_mode()
 				ghost_rgba);
 		}
 		platform->commit();
-
-		/* Brief flash visible before hint overlay */
-		struct timespec sleep_ts = { .tv_sec = 0, .tv_nsec = 150 * 1000000 };
-		nanosleep(&sleep_ts, NULL);
 	}
 
 	return hint_selection(scr, hints, n);
