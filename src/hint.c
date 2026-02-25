@@ -313,5 +313,26 @@ int history_hint_mode()
 		hints[i].label[1] = 0;
 	}
 
+	/* Flash ghost dots at history positions before showing hints */
+	platform->screen_clear(scr);
+	if (platform->screen_draw_circle) {
+		char ghost_rgba[16];
+		const char *gc = config_get("cursor_color");
+		if (*gc == '#') gc++;
+		snprintf(ghost_rgba, sizeof ghost_rgba, "#%.6s33", gc);
+
+		for (i = 0; i < n; i++) {
+			platform->screen_draw_circle(scr,
+				ents[i].x, ents[i].y,
+				w / 3, w / 6,
+				ghost_rgba);
+		}
+		platform->commit();
+
+		/* Brief flash visible before hint overlay */
+		struct timespec sleep_ts = { .tv_sec = 0, .tv_nsec = 150 * 1000000 };
+		nanosleep(&sleep_ts, NULL);
+	}
+
 	return hint_selection(scr, hints, n);
 }
