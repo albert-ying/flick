@@ -67,7 +67,7 @@ static void lock()
 	int fd;
 	char path[64];
 
-	sprintf(path, "/tmp/warpd_%d.lock", getuid());
+	sprintf(path, "/tmp/flick_%d.lock", getuid());
 	fd = open(path, O_RDONLY|O_CREAT, 0600);
 
 	if (fd < 0) {
@@ -78,7 +78,7 @@ static void lock()
 	if (flock(fd, LOCK_EX | LOCK_NB) == -1) {
 		fprintf(
 		    stderr,
-		    "ERROR: Another instance of warpd is already running.\n");
+		    "ERROR: Another instance of flick is already running.\n");
 		exit(-1);
 	}
 }
@@ -106,7 +106,7 @@ static void daemonize()
 static void print_usage()
 {
 	const char *usage =
-		"warpd: [options]\n\n"
+		"flick: [options]\n\n"
 		"  -f, --foreground            Run warpd in the foreground (useful for debugging).\n"
 		"  -h, --help                  Print this help message.\n"
 		"  -v, --version               Print the version and exit.\n"
@@ -131,7 +131,7 @@ static void print_usage()
 
 static void print_version()
 {
-	printf("warpd " VERSION"\n");
+	printf("flick " VERSION"\n");
 }
 
 
@@ -309,7 +309,7 @@ int main(int argc, char *argv[])
 			daemonize();
 
 		setvbuf(stdout, NULL, _IOLBF, 0);
-		printf("Starting warpd " VERSION "\n");
+		printf("Starting flick " VERSION "\n");
 
 		platform_run(daemon_main);
 	}

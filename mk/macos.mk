@@ -8,12 +8,12 @@ RELFLAGS=-Wl,-adhoc_codesign -framework cocoa -framework carbon
 
 all: $(OBJECTS)
 	-mkdir bin
-	$(CC) -o bin/warpd $(OBJECTS) -framework cocoa -framework carbon
+	$(CC) -o bin/flick $(OBJECTS) -framework cocoa -framework carbon
 	./codesign/sign.sh
 rel: clean
-	$(CC) -o bin/warpd-arm $(CFILES) $(OBJCFILES) -target arm64-apple-macos $(CFLAGS) $(RELFLAGS)
-	$(CC) -o bin/warpd-x86  $(CFILES) $(OBJCFILES) -target x86_64-apple-macos $(CFLAGS) $(RELFLAGS)
-	lipo -create bin/warpd-arm bin/warpd-x86 -output bin/warpd && rm -r bin/warpd-*
+	$(CC) -o bin/flick-arm $(CFILES) $(OBJCFILES) -target arm64-apple-macos $(CFLAGS) $(RELFLAGS)
+	$(CC) -o bin/flick-x86  $(CFILES) $(OBJCFILES) -target x86_64-apple-macos $(CFLAGS) $(RELFLAGS)
+	lipo -create bin/flick-arm bin/flick-x86 -output bin/flick && rm -r bin/flick-*
 	./codesign/sign.sh
 	-rm -rf tmp dist
 	mkdir tmp dist
@@ -25,11 +25,11 @@ install:
 		$(DESTDIR)/usr/local/share/man/man1/ \
 		$(DESTDIR)/Library/LaunchAgents && \
 	install -m644 files/warpd.1.gz $(DESTDIR)/usr/local/share/man/man1 && \
-	install -m755 bin/warpd $(DESTDIR)/usr/local/bin/ && \
+	install -m755 bin/flick $(DESTDIR)/usr/local/bin/ && \
 	install -m644 files/com.warpd.warpd.plist $(DESTDIR)/Library/LaunchAgents
 uninstall:
 	rm -f $(DESTDIR)/usr/local/share/man/man1/warpd.1.gz \
-		$(DESTDIR)/usr/local/bin/warpd \
+		$(DESTDIR)/usr/local/bin/flick \
 		$(DESTDIR)/Library/LaunchAgents/com.warpd.warpd.plist
 clean:
 	-rm $(OBJECTS)

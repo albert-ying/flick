@@ -1,4 +1,4 @@
-warpd(1)
+flick(1)
 
 # DESCRIPTION
 
