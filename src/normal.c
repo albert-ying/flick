@@ -41,6 +41,18 @@ static uint64_t last_trail_record = 0;
 static float cur_velocity = 0.0;  /* pixels per second */
 static float vel_x = 0.0f, vel_y = 0.0f;
 
+/* Spring overshoot state */
+static int spring_active = 0;
+static float spring_real_x, spring_real_y;
+
+/* Acceleration speed lines */
+static int is_accelerating = 0;
+
+/* Idle breathe */
+static uint64_t last_movement_ms = 0;
+#define IDLE_THRESHOLD_MS 500
+#define IDLE_TRANSITION_MS 300
+
 static uint64_t get_monotonic_ms()
 {
 	struct timespec ts;
@@ -90,19 +102,47 @@ static void update_visual_position(int target_x, int target_y)
 	float dy = (float)target_y - vy;
 	float dist = sqrtf(dx * dx + dy * dy);
 
-	/* Snap if very close or very far (teleport: hint jump, screen edge) */
-	if (dist < 0.5f || dist > 300.0f) {
+	if (dist < 0.5f) {
 		vx = (float)target_x;
 		vy = (float)target_y;
 		cur_velocity = 0.0f;
 		vel_x = 0.0f;
 		vel_y = 0.0f;
-		trail_reset();
 		return;
+	}
+
+	/* Teleport: hint jump, screen edge, etc. — overshoot 8% */
+	if (dist > 300.0f) {
+		float dir_x = dx / dist;
+		float dir_y = dy / dist;
+		float overshoot = dist * 0.08f;
+
+		vx = (float)target_x + dir_x * overshoot;
+		vy = (float)target_y + dir_y * overshoot;
+		cur_velocity = 0.0f;
+		vel_x = 0.0f;
+		vel_y = 0.0f;
+		trail_reset();
+		spring_active = 1;
+		spring_real_x = (float)target_x;
+		spring_real_y = (float)target_y;
+		return;
+	}
+
+	/* Spring correction: clear flag when close enough */
+	if (spring_active) {
+		float sdx = spring_real_x - vx;
+		float sdy = spring_real_y - vy;
+		if (sqrtf(sdx * sdx + sdy * sdy) < 1.0f) {
+			spring_active = 0;
+		}
 	}
 
 	vx += dx * LERP_FACTOR;
 	vy += dy * LERP_FACTOR;
+
+	if (dist > 2.0f)
+		last_movement_ms = get_monotonic_ms();
 
 	vel_x = dx * LERP_FACTOR * 100.0f;
 	vel_y = dy * LERP_FACTOR * 100.0f;
@@ -146,6 +186,13 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 		curcol = config_get("cursor_color");
 	}
 
+	/* Idle breathe: deepen pulse after 500ms stationary */
+	uint64_t idle_ms = get_monotonic_ms() - last_movement_ms;
+	if (idle_ms > IDLE_THRESHOLD_MS && !dragging && !scroll_is_active()) {
+		float idle_t = fminf((float)(idle_ms - IDLE_THRESHOLD_MS) / IDLE_TRANSITION_MS, 1.0f);
+		pulse_hz = 3.0f - 2.0f * idle_t;  /* 3 Hz → 1 Hz */
+	}
+
 	platform->screen_clear(scr);
 
 	/* Draw comet trail (oldest to newest, behind cursor) */
@@ -178,6 +225,34 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 				(int)(trail_y[idx] + 0.5f),
 				(int)(radius + 0.5f), (int)(radius + 0.5f),
 				trail_rgba);
+		}
+	}
+
+	/* Speed lines when accelerating */
+	if (!hide_cursor && is_accelerating && cur_velocity > 10.0f) {
+		float dir_x = vel_x, dir_y = vel_y;
+		float dir_mag = sqrtf(dir_x * dir_x + dir_y * dir_y);
+		if (dir_mag > 1.0f) {
+			dir_x /= dir_mag;
+			dir_y /= dir_mag;
+			float perp_x = -dir_y, perp_y = dir_x;
+
+			int k;
+			for (k = 0; k < 3; k++) {
+				float offset = (k - 1) * cursz * 0.8f;
+				float line_len = cursz * 1.5f + cur_velocity * 0.02f;
+				int lx = draw_x - (int)(dir_x * line_len) + (int)(perp_x * offset);
+				int ly = draw_y - (int)(dir_y * line_len) + (int)(perp_y * offset);
+				int lw = (int)(line_len);
+				int lh = 2;
+
+				int alpha = 80 - k * 20;
+				char rgba[16];
+				const char *src = curcol;
+				if (*src == '#') src++;
+				snprintf(rgba, sizeof rgba, "#%.6s%02X", src, alpha);
+				platform->screen_draw_box(scr, lx, ly, lw > 0 ? lw : 1, lh, rgba);
+			}
 		}
 	}
 
@@ -329,6 +404,9 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 	interp_initialized = 0;
 	cur_velocity = 0.0f;
 	trail_reset();
+	spring_active = 0;
+	is_accelerating = 0;
+	last_movement_ms = get_monotonic_ms();
 	start_mode_flash(mx, my);
 	redraw(scr, mx, my, !show_cursor, dragging);
 
@@ -361,6 +439,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		/* Continuous redraw for active animations and smooth interpolation */
 		if (click_fx_active || mode_flash_active ||
 		    cur_velocity > 1.0f ||
+		    (get_monotonic_ms() - last_movement_ms) > IDLE_THRESHOLD_MS ||
 		    fabsf(vx - (float)mx) > 0.5f || fabsf(vy - (float)my) > 0.5f)
 			redraw(scr, mx, my, !show_cursor, dragging);
 
@@ -389,10 +468,13 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			} else
 				scroll_decelerate();
 		} else if (config_input_match(ev, "accelerator")) {
-			if (ev->pressed)
+			if (ev->pressed) {
 				mouse_fast();
-			else
+				is_accelerating = 1;
+			} else {
 				mouse_normal();
+				is_accelerating = 0;
+			}
 		} else if (config_input_match(ev, "decelerator")) {
 			if (ev->pressed)
 				mouse_slow();

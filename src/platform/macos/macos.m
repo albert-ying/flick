@@ -63,7 +63,8 @@ void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	double t = ts.tv_sec + ts.tv_nsec / 1e9;
-	float pulse = 1.0 + 0.15 * sin(t * pulse_hz * 2.0 * M_PI);
+	float amplitude = (pulse_hz < 2.0f) ? 0.25f : 0.15f;
+	float pulse = 1.0 + amplitude * sin(t * pulse_hz * 2.0 * M_PI);
 
 	/* Velocity-based glow scaling: faster = bigger glow (up to 1.6×) */
 	float vel_scale = 1.0f + fminf(velocity / 1500.0f, 0.6f);
