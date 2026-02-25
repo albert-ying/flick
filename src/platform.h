@@ -96,6 +96,18 @@ struct platform {
 	* is called.
 	*/
 	void (*commit)();
+
+	/* Optional: sample background luminance around cursor (returns 0.0-1.0, -1 if unsupported) */
+	float (*sample_bg_luminance)(screen_t scr, int x, int y);
+
+	/* Optional: trigger gravity wave ripple at click position */
+	void (*start_ripple)(screen_t scr, int x, int y);
+
+	/* Optional: draw active ripple effect */
+	void (*draw_ripple)(screen_t scr);
+
+	/* Optional: check if ripple is still animating */
+	int (*ripple_is_active)();
 };
 
 void platform_run(int (*main) (struct platform *platform));

@@ -336,6 +336,10 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 		}
 	}
 
+	/* Gravity wave ripple */
+	if (platform->draw_ripple)
+		platform->draw_ripple(scr);
+
 	/* Mode transition flash */
 	if (mode_flash_active && platform->screen_draw_circle) {
 		uint64_t now = get_monotonic_ms();
@@ -487,6 +491,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		if (click_fx_active || mode_flash_active ||
 		    cur_velocity > 1.0f ||
 		    (get_monotonic_ms() - last_movement_ms) > IDLE_THRESHOLD_MS ||
+		    (platform->ripple_is_active && platform->ripple_is_active()) ||
 		    fabsf(vx - (float)mx) > 0.5f || fabsf(vy - (float)my) > 0.5f)
 			redraw(scr, mx, my, !show_cursor, dragging);
 
@@ -586,11 +591,11 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				hist_add(mx, my);
 				histfile_add(mx, my);
 				platform->mouse_click(btn);
-				start_click_fx(mx, my);
+				start_click_fx(scr, mx, my);
 			} else if ((btn = config_input_match(ev, "oneshot_buttons"))) {
 				hist_add(mx, my);
 				platform->mouse_click(btn);
-				start_click_fx(mx, my);
+				start_click_fx(scr, mx, my);
 
 				const int timeout = config_get_int("oneshot_timeout");
 

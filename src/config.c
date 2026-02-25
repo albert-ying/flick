@@ -56,6 +56,7 @@ static struct {
 	{ "scroll_up", "r", "Scroll up key.", OPT_KEY },
 
 	{ "cursor_color", "#FF4500", "The color of the pointer in normal mode (rgba hex value).", OPT_STRING },
+	{ "cursor_color_dark", "#333333", "Cursor color on light backgrounds.", OPT_STRING },
 	{ "cursor_border_color", "#000000", "The border color of the pointer in normal mode (rgba hex value).", OPT_STRING },
 	{ "cursor_border_size", "2", "The border thickness of the pointer in normal mode.", OPT_INT },
 

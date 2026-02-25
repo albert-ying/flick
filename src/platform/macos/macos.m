@@ -277,6 +277,10 @@ static void *mainloop(void *arg)
 		.screen_list = osx_screen_list,
 		.scroll = osx_scroll,
 		.monitor_file = osx_monitor_file,
+		.sample_bg_luminance = osx_sample_bg_luminance,
+		.start_ripple = osx_ripple_start,
+		.draw_ripple = osx_draw_ripple,
+		.ripple_is_active = osx_ripple_is_active,
 	};
 
 	main(&platform);
