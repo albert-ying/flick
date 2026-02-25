@@ -1,4 +1,5 @@
 #include "macos.h"
+#include <math.h>
 #include <time.h>
 
 static float border_radius;
@@ -10,6 +11,7 @@ const char *font;
 
 /* Hint appear animation */
 static uint64_t hint_appear_time = 0;
+static int cursor_x_at_draw, cursor_y_at_draw;
 #define HINT_ANIM_MS 80
 
 static uint64_t hint_monotonic_ms(void)
