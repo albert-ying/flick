@@ -6,6 +6,16 @@
 
 #include "macos.h"
 
+/*
+ * CGWindowListCreateImage was obsoleted in macOS 15.0 SDK.
+ * Redeclare it under a different name linked to the same linker symbol
+ * to bypass the availability attribute.
+ */
+extern CGImageRef
+warpd_CGWindowListCreateImage(CGRect, CGWindowListOption,
+	CGWindowID, CGWindowImageOption)
+	__asm("_CGWindowListCreateImage");
+
 float osx_sample_bg_luminance(struct screen *scr, int x, int y)
 {
 	int sample_size = 20;
@@ -14,7 +24,7 @@ float osx_sample_bg_luminance(struct screen *scr, int x, int y)
 
 	CGRect captureRect = CGRectMake(sx, sy, sample_size, sample_size);
 
-	CGImageRef image = CGWindowListCreateImage(
+	CGImageRef image = warpd_CGWindowListCreateImage(
 		captureRect,
 		kCGWindowListOptionOnScreenBelowWindow,
 		(CGWindowID)[scr->overlay->win windowNumber],

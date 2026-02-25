@@ -7,6 +7,16 @@
 #include "macos.h"
 #import <QuartzCore/QuartzCore.h>
 
+/*
+ * CGWindowListCreateImage was obsoleted in macOS 15.0 SDK.
+ * Redeclare it under a different name linked to the same linker symbol
+ * to bypass the availability attribute.
+ */
+extern CGImageRef
+warpd_CGWindowListCreateImage(CGRect, CGWindowListOption,
+	CGWindowID, CGWindowImageOption)
+	__asm("_CGWindowListCreateImage");
+
 /* Ripple effect state — one active ripple at a time */
 static CGImageRef ripple_capture = NULL;
 static CIImage *ripple_ci_image = nil;
@@ -40,7 +50,7 @@ void osx_ripple_start(struct screen *scr, int x, int y)
 
 	CGRect captureRect = CGRectMake(sx, sy, capture_sz, capture_sz);
 
-	ripple_capture = CGWindowListCreateImage(
+	ripple_capture = warpd_CGWindowListCreateImage(
 		captureRect,
 		kCGWindowListOptionOnScreenBelowWindow,
 		(CGWindowID)[scr->overlay->win windowNumber],
@@ -62,6 +72,22 @@ void osx_ripple_start(struct screen *scr, int x, int y)
 int osx_ripple_is_active(void)
 {
 	return ripple_active;
+}
+
+/* Draw hook adapter — called from window_register_draw_hook */
+static void ripple_draw_hook(void *arg, NSView *view)
+{
+	(void)view;
+	struct screen *scr = arg;
+	osx_ripple_draw(scr, view);
+}
+
+/* Platform-level wrapper: register ripple drawing as a hook for next commit */
+void osx_draw_ripple(struct screen *scr)
+{
+	if (!ripple_active)
+		return;
+	window_register_draw_hook(scr->overlay, ripple_draw_hook, scr);
 }
 
 void osx_ripple_draw(struct screen *scr, NSView *view)
