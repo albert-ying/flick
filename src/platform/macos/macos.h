@@ -77,7 +77,7 @@ struct window {
 	struct drawing_hook hooks[MAX_DRAWING_HOOKS];
 };
 
-#define MAX_CIRCLES 8
+#define MAX_CIRCLES 64
 
 struct screen {
 	/* LLO */

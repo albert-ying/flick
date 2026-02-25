@@ -10,9 +10,8 @@
 /* Click effect animation state */
 static int click_fx_active = 0;
 static uint64_t click_fx_start = 0;
-static int click_fx_x, click_fx_y;
 
-#define CLICK_FX_DURATION_MS 300
+#define CLICK_FX_DURATION_MS 200
 
 /* Mode transition flash state */
 static int mode_flash_active = 0;
@@ -265,10 +264,24 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 		}
 	}
 
-	if (!hide_cursor)
+	if (!hide_cursor) {
+		/* Click squish: quickly inflate then shrink back */
+		int draw_cursz = cursz;
+		if (click_fx_active) {
+			uint64_t elapsed = get_monotonic_ms() - click_fx_start;
+			if (elapsed < CLICK_FX_DURATION_MS) {
+				float ct = (float)elapsed / CLICK_FX_DURATION_MS;
+				/* fast rise, slow fall: peak at t=0.15 */
+				float squish = (ct < 0.15f) ? ct / 0.15f : (1.0f - ct) / 0.85f;
+				draw_cursz = cursz + (int)(squish * cursz * 0.6f);
+			} else {
+				click_fx_active = 0;
+			}
+		}
 		platform->screen_draw_cursor(scr, draw_x, draw_y,
-				cursz, curcol, curborder, curbordersz, pulse_hz,
+				draw_cursz, curcol, curborder, curbordersz, pulse_hz,
 				cur_velocity, vel_x, vel_y);
+	}
 
 	/* Screen edge pulse */
 	if (!hide_cursor) {
@@ -293,32 +306,6 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 	if (dragging && !hide_cursor && platform->screen_draw_circle) {
 		platform->screen_draw_circle(scr, draw_x, draw_y,
 			cursz * 2, 1, config_get("drag_indicator_color"));
-	}
-
-	/* Draw click effect expanding ring */
-	if (click_fx_active && platform->screen_draw_circle) {
-		uint64_t now = get_monotonic_ms();
-		uint64_t elapsed = now - click_fx_start;
-
-		if (elapsed < CLICK_FX_DURATION_MS) {
-			double t = (double)elapsed / CLICK_FX_DURATION_MS;
-			int radius = cursz + (int)(t * cursz * 4);
-			int alpha = (int)((1.0 - t) * 0.8 * 255);
-			if (alpha < 0) alpha = 0;
-			if (alpha > 255) alpha = 255;
-
-			const char *base_color = config_get("click_effect_color");
-			char rgba[16];
-			const char *src = base_color;
-			if (*src == '#') src++;
-			snprintf(rgba, sizeof rgba, "#%.6s%02X", src, alpha);
-
-			platform->screen_draw_circle(scr,
-				click_fx_x, click_fx_y,
-				radius, 2, rgba);
-		} else {
-			click_fx_active = 0;
-		}
 	}
 
 	/* Gravity wave ripple */
@@ -371,9 +358,6 @@ static void start_click_fx(screen_t scr, int x, int y)
 {
 	click_fx_active = 1;
 	click_fx_start = get_monotonic_ms();
-	click_fx_x = x;
-	click_fx_y = y;
-
 	/* Trigger gravity wave ripple (macOS-only, NULL on other platforms) */
 	if (platform->start_ripple)
 		platform->start_ripple(scr, x, y, config_get("click_effect_color"));
