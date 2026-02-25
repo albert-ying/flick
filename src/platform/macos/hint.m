@@ -6,7 +6,6 @@ static float border_radius;
 
 static NSColor *bgColor;
 static NSColor *fgColor;
-static NSColor *borderColor;
 const char *font;
 
 /* Hint appear animation */
@@ -59,21 +58,51 @@ static void draw_hook(void *arg, NSView *view)
 		float lx = cx;
 		float ly = scr->h - cy - ch;
 
+		float br = border_radius * scale;
+		NSRect hintRect = NSMakeRect(lx, ly, cw, ch);
 		NSBezierPath *path = [NSBezierPath
-		    bezierPathWithRoundedRect:NSMakeRect(lx, ly, cw, ch)
-				      xRadius:border_radius * scale
-				      yRadius:border_radius * scale];
+		    bezierPathWithRoundedRect:hintRect
+				      xRadius:br
+				      yRadius:br];
 
-		/* Fill with animated alpha */
-		[[bgColor colorWithAlphaComponent:
-			[bgColor alphaComponent] * alpha] setFill];
+		/* Layer 1: Translucent fill (~55% alpha) */
+		[[bgColor colorWithAlphaComponent:0.55f * alpha] setFill];
 		[path fill];
 
-		/* Border stroke */
-		[[borderColor colorWithAlphaComponent:
-			[borderColor alphaComponent] * alpha] setStroke];
-		[path setLineWidth:1.0];
-		[path stroke];
+		/* Layer 2: Top-edge specular highlight */
+		[NSGraphicsContext saveGraphicsState];
+		[path addClip];
+		float highlightH = ch * 0.4f;
+		NSGradient *highlight = [[NSGradient alloc]
+		    initWithStartingColor:
+			[[NSColor whiteColor] colorWithAlphaComponent:0.18f * alpha]
+		    endingColor:
+			[[NSColor whiteColor] colorWithAlphaComponent:0.0f]];
+		[highlight drawInRect:NSMakeRect(lx, ly + ch - highlightH, cw, highlightH)
+			       angle:270];
+		[NSGraphicsContext restoreGraphicsState];
+
+		/* Layer 3: Specular border — bright top, dim bottom */
+		NSBezierPath *strokePath = [NSBezierPath
+		    bezierPathWithRoundedRect:NSInsetRect(hintRect, 0.5, 0.5)
+				      xRadius:br
+				      yRadius:br];
+		[strokePath setLineWidth:1.0];
+		float midY = ly + ch * 0.5f;
+
+		/* Top half: brighter */
+		[NSGraphicsContext saveGraphicsState];
+		NSRectClip(NSMakeRect(lx, midY, cw, ch));
+		[[[NSColor whiteColor] colorWithAlphaComponent:0.30f * alpha] setStroke];
+		[strokePath stroke];
+		[NSGraphicsContext restoreGraphicsState];
+
+		/* Bottom half: dimmer */
+		[NSGraphicsContext saveGraphicsState];
+		NSRectClip(NSMakeRect(lx, ly, cw, ch * 0.5f));
+		[[[NSColor whiteColor] colorWithAlphaComponent:0.08f * alpha] setStroke];
+		[strokePath stroke];
+		[NSGraphicsContext restoreGraphicsState];
 
 		/* Text with animated alpha */
 		NSColor *animFg = [fgColor colorWithAlphaComponent:alpha];
@@ -114,7 +143,6 @@ void osx_init_hint(const char *bg, const char *fg, int _border_radius,
 {
 	bgColor = nscolor_from_hex(bg);
 	fgColor = nscolor_from_hex(fg);
-	borderColor = [fgColor colorWithAlphaComponent:0.25];
 
 	border_radius = (float)_border_radius;
 	font = font_family;
