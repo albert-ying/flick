@@ -52,7 +52,7 @@ void macos_draw_text(struct screen *scr, NSColor *col, const char *font,
 }
 
 void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
-		       float x, float y, float size, float border_size, float pulse_hz)
+		       float x, float y, float size, float border_size, float pulse_hz, float velocity)
 {
 	/* Convert ULO -> LLO: macOS y increases upward */
 	float cx = x;
@@ -64,7 +64,10 @@ void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
 	double t = ts.tv_sec + ts.tv_nsec / 1e9;
 	float pulse = 1.0 + 0.15 * sin(t * pulse_hz * 2.0 * M_PI);
 
-	float glow_radius = size * pulse;
+	/* Velocity-based glow scaling: faster = bigger glow (up to 1.6×) */
+	float vel_scale = 1.0f + fminf(velocity / 1500.0f, 0.6f);
+
+	float glow_radius = size * pulse * vel_scale;
 	float core_radius = size * 0.35;
 
 	/* 1. Outer glow: radial gradient from fill color center to transparent edge */

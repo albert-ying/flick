@@ -14,11 +14,99 @@ static int click_fx_x, click_fx_y;
 
 #define CLICK_FX_DURATION_MS 300
 
+/* Mode transition flash state */
+static int mode_flash_active = 0;
+static uint64_t mode_flash_start = 0;
+static int mode_flash_x, mode_flash_y;
+
+#define MODE_FLASH_DURATION_MS 200
+
+/* Smooth interpolation state */
+static float vx, vy;          /* visual cursor position (float for subpixel) */
+static int interp_initialized = 0;
+
+#define LERP_FACTOR 0.25       /* per-tick blend: ~100ms to settle at 10ms ticks */
+
+/* Comet trail ring buffer */
+#define TRAIL_LEN 5
+static float trail_x[TRAIL_LEN];
+static float trail_y[TRAIL_LEN];
+static int trail_head = 0;
+static int trail_count = 0;
+static uint64_t last_trail_record = 0;
+
+#define TRAIL_RECORD_INTERVAL_MS 15  /* record a trail dot every 15ms */
+
+/* Velocity tracking */
+static float cur_velocity = 0.0;  /* pixels per second */
+
 static uint64_t get_monotonic_ms()
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+static void start_mode_flash(int x, int y)
+{
+	mode_flash_active = 1;
+	mode_flash_start = get_monotonic_ms();
+	mode_flash_x = x;
+	mode_flash_y = y;
+}
+
+static void trail_reset(void)
+{
+	trail_head = 0;
+	trail_count = 0;
+	last_trail_record = 0;
+}
+
+static void trail_record(float x, float y)
+{
+	uint64_t now = get_monotonic_ms();
+	if (now - last_trail_record < TRAIL_RECORD_INTERVAL_MS)
+		return;
+	last_trail_record = now;
+
+	trail_x[trail_head] = x;
+	trail_y[trail_head] = y;
+	trail_head = (trail_head + 1) % TRAIL_LEN;
+	if (trail_count < TRAIL_LEN)
+		trail_count++;
+}
+
+static void update_visual_position(int target_x, int target_y)
+{
+	if (!interp_initialized) {
+		vx = (float)target_x;
+		vy = (float)target_y;
+		interp_initialized = 1;
+		return;
+	}
+
+	float dx = (float)target_x - vx;
+	float dy = (float)target_y - vy;
+	float dist = sqrtf(dx * dx + dy * dy);
+
+	/* Snap if very close or very far (teleport: hint jump, screen edge) */
+	if (dist < 0.5f || dist > 300.0f) {
+		vx = (float)target_x;
+		vy = (float)target_y;
+		cur_velocity = 0.0f;
+		trail_reset();
+		return;
+	}
+
+	vx += dx * LERP_FACTOR;
+	vy += dy * LERP_FACTOR;
+
+	/* Velocity in pixels/second (10ms tick → ×100) */
+	float step = sqrtf((dx * LERP_FACTOR) * (dx * LERP_FACTOR) +
+			   (dy * LERP_FACTOR) * (dy * LERP_FACTOR));
+	cur_velocity = cur_velocity * 0.7f + step * 100.0f * 0.3f; /* smoothed */
+
+	trail_record(vx, vy);
 }
 
 static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
@@ -35,6 +123,11 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 	const char *indicator = config_get("indicator");
 	const int cursz = config_get_int("cursor_size");
 
+	/* Update smooth visual position */
+	update_visual_position(x, y);
+	int draw_x = (int)(vx + 0.5f);
+	int draw_y = (int)(vy + 0.5f);
+
 	/* Color priority: scroll > drag > normal */
 	const char *curcol;
 	float pulse_hz = 3.0;
@@ -49,13 +142,47 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 
 	platform->screen_clear(scr);
 
+	/* Draw comet trail (oldest to newest, behind cursor) */
+	if (!hide_cursor && trail_count > 0 && platform->screen_draw_circle) {
+		const char *base = curcol;
+		char trail_rgba[16];
+		const char *src = base;
+		if (*src == '#') src++;
+
+		int i;
+		for (i = 0; i < trail_count; i++) {
+			/* Walk from oldest to newest */
+			int idx = (trail_head - trail_count + i + TRAIL_LEN) % TRAIL_LEN;
+			float age = (float)(trail_count - 1 - i) / (float)trail_count;
+
+			/* Skip trail dots too close to cursor */
+			float tdx = trail_x[idx] - vx;
+			float tdy = trail_y[idx] - vy;
+			if (sqrtf(tdx * tdx + tdy * tdy) < cursz * 0.4f)
+				continue;
+
+			int alpha = (int)((1.0f - age) * 0.35f * 255);
+			float radius = cursz * 0.25f * (1.0f - age * 0.6f);
+			if (alpha < 5 || radius < 1.0f)
+				continue;
+
+			snprintf(trail_rgba, sizeof trail_rgba, "#%.6s%02X", src, alpha);
+			platform->screen_draw_circle(scr,
+				(int)(trail_x[idx] + 0.5f),
+				(int)(trail_y[idx] + 0.5f),
+				(int)(radius + 0.5f), (int)(radius + 0.5f),
+				trail_rgba);
+		}
+	}
+
 	if (!hide_cursor)
-		platform->screen_draw_cursor(scr, x, y,
-				cursz, curcol, curborder, curbordersz, pulse_hz);
+		platform->screen_draw_cursor(scr, draw_x, draw_y,
+				cursz, curcol, curborder, curbordersz, pulse_hz,
+				cur_velocity);
 
 	/* Sentinel ring while dragging */
 	if (dragging && !hide_cursor && platform->screen_draw_circle) {
-		platform->screen_draw_circle(scr, x, y,
+		platform->screen_draw_circle(scr, draw_x, draw_y,
 			cursz * 2, 1, config_get("drag_indicator_color"));
 	}
 
@@ -72,7 +199,6 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 			if (alpha > 255) alpha = 255;
 
 			const char *base_color = config_get("click_effect_color");
-			/* Build RGBA hex: base color + computed alpha */
 			char rgba[16];
 			const char *src = base_color;
 			if (*src == '#') src++;
@@ -83,6 +209,30 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 				radius, 2, rgba);
 		} else {
 			click_fx_active = 0;
+		}
+	}
+
+	/* Mode transition flash */
+	if (mode_flash_active && platform->screen_draw_circle) {
+		uint64_t now = get_monotonic_ms();
+		uint64_t elapsed = now - mode_flash_start;
+
+		if (elapsed < MODE_FLASH_DURATION_MS) {
+			double t = (double)elapsed / MODE_FLASH_DURATION_MS;
+			int radius = cursz + (int)(t * cursz * 3);
+			int alpha = (int)((1.0 - t) * 0.6 * 255);
+			if (alpha < 0) alpha = 0;
+
+			char rgba[16];
+			const char *src = curcol;
+			if (*src == '#') src++;
+			snprintf(rgba, sizeof rgba, "#%.6s%02X", src, alpha);
+
+			platform->screen_draw_circle(scr,
+				mode_flash_x, mode_flash_y,
+				radius, 2, rgba);
+		} else {
+			mode_flash_active = 0;
 		}
 	}
 
@@ -170,6 +320,10 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 
 	mouse_reset();
 	click_fx_active = 0;
+	interp_initialized = 0;
+	cur_velocity = 0.0f;
+	trail_reset();
+	start_mode_flash(mx, my);
 	redraw(scr, mx, my, !show_cursor, dragging);
 
 	uint64_t time = 0;
@@ -198,8 +352,10 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			}
 		}
 
-		/* Redraw while click effect is active to animate the ring */
-		if (click_fx_active)
+		/* Continuous redraw for active animations and smooth interpolation */
+		if (click_fx_active || mode_flash_active ||
+		    cur_velocity > 1.0f ||
+		    fabsf(vx - (float)mx) > 0.5f || fabsf(vy - (float)my) > 0.5f)
 			redraw(scr, mx, my, !show_cursor, dragging);
 
 		scroll_tick();
@@ -263,6 +419,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			move(scr, mx, my, !show_cursor, dragging);
 		} else if (config_input_match(ev, "drag")) {
 			dragging = !dragging;
+			start_mode_flash(mx, my);
 			if (dragging)
 				platform->mouse_down(config_get_int("drag_button"));
 			else
