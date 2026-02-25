@@ -101,7 +101,7 @@ struct platform {
 	float (*sample_bg_luminance)(screen_t scr, int x, int y);
 
 	/* Optional: trigger gravity wave ripple at click position */
-	void (*start_ripple)(screen_t scr, int x, int y);
+	void (*start_ripple)(screen_t scr, int x, int y, const char *color);
 
 	/* Optional: draw active ripple effect */
 	void (*draw_ripple)(screen_t scr);

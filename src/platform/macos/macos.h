@@ -167,9 +167,8 @@ void osx_input_interrupt();
 void osx_commit();
 
 float osx_sample_bg_luminance(struct screen *scr, int x, int y);
-void osx_ripple_start(struct screen *scr, int x, int y);
+void osx_ripple_start(struct screen *scr, int x, int y, const char *color);
 int osx_ripple_is_active(void);
-void osx_ripple_draw(struct screen *scr, NSView *view);
 void osx_draw_ripple(struct screen *scr);
 
 #endif

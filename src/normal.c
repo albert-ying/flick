@@ -376,7 +376,7 @@ static void start_click_fx(screen_t scr, int x, int y)
 
 	/* Trigger gravity wave ripple (macOS-only, NULL on other platforms) */
 	if (platform->start_ripple)
-		platform->start_ripple(scr, x, y);
+		platform->start_ripple(scr, x, y, config_get("click_effect_color"));
 }
 
 struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
