@@ -17,6 +17,6 @@ security unlock-keychain -p ${KEYCHAIN_PASSWORD} ${KEYCHAIN_NAME}
 # Suppress codesign modal password prompt
 security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" -D "${identity}" -t private ${KEYCHAIN_NAME} > /dev/null 2>&1
 
-codesign --force --deep --keychain "${KEYCHAIN_NAME}" -s warpd ../bin/warpd
+codesign --force --deep --keychain "${KEYCHAIN_NAME}" -s warpd ../bin/flick
 
 security delete-keychain ${KEYCHAIN_NAME}
