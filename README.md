@@ -55,8 +55,8 @@ Build from source:
 
 ```sh
 xcode-select --install   # if you don't already have Xcode CLI tools
-git clone https://github.com/albert-ying/warpd.git
-cd warpd
+git clone https://github.com/albert-ying/flick.git
+cd flick
 make && sudo make install
 launchctl load /Library/LaunchAgents/com.warpd.warpd.plist
 ```
