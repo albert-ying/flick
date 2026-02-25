@@ -106,7 +106,8 @@ static void screen_draw_box(screen_t scr, int x, int y, int w, int h, const char
 /* Fallback: draw cursor as a box on Windows */
 static void screen_draw_cursor(screen_t scr, int x, int y, int size,
 				const char *fill_color, const char *border_color,
-				int border_size, float pulse_hz, float velocity)
+				int border_size, float pulse_hz, float velocity,
+				float velocity_x, float velocity_y)
 {
 	screen_draw_box(scr, x, y, size, size, fill_color);
 }

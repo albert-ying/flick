@@ -35,12 +35,13 @@ static void cursor_draw_hook(void *arg, NSView *view)
 	struct cursor_draw_data *c = arg;
 	macos_draw_cursor(c->scr, c->fill_color, c->border_color,
 			  c->x, c->y, c->size, c->border_size, c->pulse_hz,
-			  c->velocity);
+			  c->velocity, c->velocity_x, c->velocity_y);
 }
 
 void osx_screen_draw_cursor(struct screen *scr, int x, int y, int size,
 			    const char *fill_color, const char *border_color,
-			    int border_size, float pulse_hz, float velocity)
+			    int border_size, float pulse_hz, float velocity,
+			    float velocity_x, float velocity_y)
 {
 	struct cursor_draw_data *c = &scr->cursor;
 
@@ -50,6 +51,8 @@ void osx_screen_draw_cursor(struct screen *scr, int x, int y, int size,
 	c->border_size = border_size;
 	c->pulse_hz = pulse_hz;
 	c->velocity = velocity;
+	c->velocity_x = velocity_x;
+	c->velocity_y = velocity_y;
 	c->scr = scr;
 	c->fill_color = nscolor_from_hex(fill_color);
 	c->border_color = nscolor_from_hex(border_color);

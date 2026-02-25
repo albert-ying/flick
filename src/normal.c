@@ -39,6 +39,7 @@ static uint64_t last_trail_record = 0;
 
 /* Velocity tracking */
 static float cur_velocity = 0.0;  /* pixels per second */
+static float vel_x = 0.0f, vel_y = 0.0f;
 
 static uint64_t get_monotonic_ms()
 {
@@ -94,12 +95,17 @@ static void update_visual_position(int target_x, int target_y)
 		vx = (float)target_x;
 		vy = (float)target_y;
 		cur_velocity = 0.0f;
+		vel_x = 0.0f;
+		vel_y = 0.0f;
 		trail_reset();
 		return;
 	}
 
 	vx += dx * LERP_FACTOR;
 	vy += dy * LERP_FACTOR;
+
+	vel_x = dx * LERP_FACTOR * 100.0f;
+	vel_y = dy * LERP_FACTOR * 100.0f;
 
 	/* Velocity in pixels/second (10ms tick → ×100) */
 	float step = sqrtf((dx * LERP_FACTOR) * (dx * LERP_FACTOR) +
@@ -178,7 +184,7 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 	if (!hide_cursor)
 		platform->screen_draw_cursor(scr, draw_x, draw_y,
 				cursz, curcol, curborder, curbordersz, pulse_hz,
-				cur_velocity);
+				cur_velocity, vel_x, vel_y);
 
 	/* Sentinel ring while dragging */
 	if (dragging && !hide_cursor && platform->screen_draw_circle) {

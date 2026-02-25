@@ -52,7 +52,8 @@ void macos_draw_text(struct screen *scr, NSColor *col, const char *font,
 }
 
 void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
-		       float x, float y, float size, float border_size, float pulse_hz, float velocity)
+		       float x, float y, float size, float border_size, float pulse_hz, float velocity,
+		       float velocity_x, float velocity_y)
 {
 	/* Convert ULO -> LLO: macOS y increases upward */
 	float cx = x;
@@ -81,18 +82,47 @@ void macos_draw_cursor(struct screen *scr, NSColor *fill, NSColor *border,
 	NSBezierPath *glowPath = [NSBezierPath bezierPathWithOvalInRect:glowRect];
 	[gradient drawInBezierPath:glowPath relativeCenterPosition:NSMakePoint(0, 0)];
 
-	/* 2. Core dot: solid filled circle */
-	NSRect coreRect = NSMakeRect(cx - core_radius, cy - core_radius,
-				     core_radius * 2, core_radius * 2);
-	NSBezierPath *corePath = [NSBezierPath bezierPathWithOvalInRect:coreRect];
-	[fill setFill];
-	[corePath fill];
+	/* 2. Motion stretch: elongate core along velocity direction */
+	float speed = sqrtf(velocity_x * velocity_x + velocity_y * velocity_y);
+	float stretch = 1.0f + fminf(speed / 800.0f, 0.8f);
 
-	/* 3. Border ring around the core */
-	if (border_size > 0) {
-		[border setStroke];
-		[corePath setLineWidth:border_size];
-		[corePath stroke];
+	if (speed > 5.0f) {
+		float angle = atan2f(-velocity_y, velocity_x);  /* -vy for LLO coords */
+		float core_rx = core_radius * stretch;
+		float core_ry = core_radius / sqrtf(stretch);
+
+		/* Save graphics state, apply rotation around center */
+		[NSGraphicsContext saveGraphicsState];
+		NSAffineTransform *xform = [NSAffineTransform transform];
+		[xform translateXBy:cx yBy:cy];
+		[xform rotateByRadians:angle];
+		[xform translateXBy:-cx yBy:-cy];
+		[xform concat];
+
+		NSRect ovalRect = NSMakeRect(cx - core_rx, cy - core_ry,
+					     core_rx * 2, core_ry * 2);
+		NSBezierPath *corePath = [NSBezierPath bezierPathWithOvalInRect:ovalRect];
+		[fill setFill];
+		[corePath fill];
+		if (border_size > 0) {
+			[border setStroke];
+			[corePath setLineWidth:border_size];
+			[corePath stroke];
+		}
+
+		[NSGraphicsContext restoreGraphicsState];
+	} else {
+		/* At rest: perfect circle */
+		NSRect coreRect = NSMakeRect(cx - core_radius, cy - core_radius,
+					     core_radius * 2, core_radius * 2);
+		NSBezierPath *corePath = [NSBezierPath bezierPathWithOvalInRect:coreRect];
+		[fill setFill];
+		[corePath fill];
+		if (border_size > 0) {
+			[border setStroke];
+			[corePath setLineWidth:border_size];
+			[corePath stroke];
+		}
 	}
 }
 

@@ -93,7 +93,8 @@ void x_screen_draw_box(struct screen *scr, int x, int y, int w, int h, const cha
 /* Fallback: draw cursor as a box on X11 */
 void x_screen_draw_cursor(struct screen *scr, int x, int y, int size,
 			   const char *fill_color, const char *border_color,
-			   int border_size, float pulse_hz, float velocity)
+			   int border_size, float pulse_hz, float velocity,
+			   float velocity_x, float velocity_y)
 {
 	x_screen_draw_box(scr, x, y, size, size, fill_color);
 }
