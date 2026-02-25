@@ -53,6 +53,13 @@ static uint64_t last_movement_ms = 0;
 #define IDLE_THRESHOLD_MS 500
 #define IDLE_TRANSITION_MS 300
 
+/* Adaptive contrast */
+static float cached_luminance = 0.0f;
+static uint64_t last_luminance_sample = 0;
+static int last_luminance_x = -100, last_luminance_y = -100;
+#define LUMINANCE_INTERVAL_MS 200
+#define LUMINANCE_MOVE_THRESH 30
+
 static uint64_t get_monotonic_ms()
 {
 	struct timespec ts;
@@ -174,7 +181,22 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 	int draw_x = (int)(vx + 0.5f);
 	int draw_y = (int)(vy + 0.5f);
 
-	/* Color priority: scroll > drag > normal */
+	/* Adaptive contrast: sample background luminance */
+	if (platform->sample_bg_luminance) {
+		uint64_t now = get_monotonic_ms();
+		int dx_l = draw_x - last_luminance_x;
+		int dy_l = draw_y - last_luminance_y;
+		int moved = (dx_l * dx_l + dy_l * dy_l) > LUMINANCE_MOVE_THRESH * LUMINANCE_MOVE_THRESH;
+
+		if (moved || (now - last_luminance_sample > LUMINANCE_INTERVAL_MS)) {
+			cached_luminance = platform->sample_bg_luminance(scr, draw_x, draw_y);
+			last_luminance_sample = now;
+			last_luminance_x = draw_x;
+			last_luminance_y = draw_y;
+		}
+	}
+
+	/* Color priority: scroll > drag > adaptive contrast > normal */
 	const char *curcol;
 	float pulse_hz = 3.0;
 	if (scroll_is_active()) {
@@ -182,6 +204,8 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 	} else if (dragging) {
 		curcol = config_get("drag_cursor_color");
 		pulse_hz = 5.0;
+	} else if (cached_luminance > 0.6f && platform->sample_bg_luminance) {
+		curcol = config_get("cursor_color_dark");
 	} else {
 		curcol = config_get("cursor_color");
 	}
@@ -261,6 +285,25 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 				cursz, curcol, curborder, curbordersz, pulse_hz,
 				cur_velocity, vel_x, vel_y);
 
+	/* Screen edge pulse */
+	if (!hide_cursor) {
+		int edge_thresh = 2;
+		char edge_rgba[16];
+		const char *esrc = curcol;
+		if (*esrc == '#') esrc++;
+		snprintf(edge_rgba, sizeof edge_rgba, "#%.6s40", esrc);
+
+		int edge_thick = 3;
+		if (draw_x <= edge_thresh)
+			platform->screen_draw_box(scr, 0, 0, edge_thick, sh, edge_rgba);
+		if (draw_x >= sw - edge_thresh)
+			platform->screen_draw_box(scr, sw - edge_thick, 0, edge_thick, sh, edge_rgba);
+		if (draw_y <= edge_thresh)
+			platform->screen_draw_box(scr, 0, 0, sw, edge_thick, edge_rgba);
+		if (draw_y >= sh - edge_thresh)
+			platform->screen_draw_box(scr, 0, sh - edge_thick, sw, edge_thick, edge_rgba);
+	}
+
 	/* Sentinel ring while dragging */
 	if (dragging && !hide_cursor && platform->screen_draw_circle) {
 		platform->screen_draw_circle(scr, draw_x, draw_y,
@@ -335,12 +378,16 @@ static void move(screen_t scr, int x, int y, int hide_cursor, int dragging)
 	redraw(scr, x, y, hide_cursor, dragging);
 }
 
-static void start_click_fx(int x, int y)
+static void start_click_fx(screen_t scr, int x, int y)
 {
 	click_fx_active = 1;
 	click_fx_start = get_monotonic_ms();
 	click_fx_x = x;
 	click_fx_y = y;
+
+	/* Trigger gravity wave ripple (macOS-only, NULL on other platforms) */
+	if (platform->start_ripple)
+		platform->start_ripple(scr, x, y);
 }
 
 struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
