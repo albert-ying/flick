@@ -28,26 +28,13 @@ flick adds 15 visual effects on top of warpd's modal cursor system:
 
 ## Demo
 
-### Hint Mode `Alt-Meta-x`
-
 <p align="center">
-<img src="demo/hints.gif" height="400px"/>
+<img src="demo/overall.gif" width="720px"/>
 </p>
 
-### Grid Mode `Alt-Meta-g`
-
 <p align="center">
-<img src="demo/warp.gif" height="400px"/>
+<img src="demo/cursor_physics.gif" width="720px"/>
 </p>
-
-### Normal Mode `Alt-Meta-c`
-
-<p align="center">
-<img src="demo/discrete.gif" height="400px"/>
-<img src="demo/discrete2.gif" height="400px" width="711px"/>
-</p>
-
-> These GIFs are from upstream warpd and show pre-animation behavior. Updated demos coming soon.
 
 ## Installation (macOS)
 
