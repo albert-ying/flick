@@ -26,17 +26,28 @@ static void draw_hook(void *arg, NSView *view)
 	size_t i;
 	struct screen *scr = arg;
 
-	/* Compute animation progress (0.0 → 1.0 over HINT_ANIM_MS) */
-	uint64_t elapsed = hint_monotonic_ms() - hint_appear_time;
-	float anim_t = (elapsed >= HINT_ANIM_MS) ? 1.0f :
-		       (float)elapsed / (float)HINT_ANIM_MS;
-	/* Ease-out: 1 - (1-t)^2 */
-	float ease = 1.0f - (1.0f - anim_t) * (1.0f - anim_t);
-	float scale = 0.8f + 0.2f * ease;
-	float alpha = ease;
+	uint64_t base_elapsed = hint_monotonic_ms() - hint_appear_time;
 
 	for (i = 0; i < scr->nr_hints; i++) {
 		struct hint *h = &scr->hints[i];
+
+		/* Per-hint delay: distance from cursor × 0.08 ms/px */
+		float hcx = h->x + h->w * 0.5f;
+		float hcy = h->y + h->h * 0.5f;
+		float dist = sqrtf((hcx - cursor_x_at_draw) * (hcx - cursor_x_at_draw) +
+				   (hcy - cursor_y_at_draw) * (hcy - cursor_y_at_draw));
+		uint64_t delay_ms = (uint64_t)(dist * 0.08f);
+		if (delay_ms > 120) delay_ms = 120;
+
+		if (base_elapsed < delay_ms)
+			continue;  /* not yet visible */
+
+		uint64_t hint_elapsed = base_elapsed - delay_ms;
+		float anim_t = (hint_elapsed >= HINT_ANIM_MS) ? 1.0f :
+			       (float)hint_elapsed / (float)HINT_ANIM_MS;
+		float ease = 1.0f - (1.0f - anim_t) * (1.0f - anim_t);
+		float scale = 0.8f + 0.2f * ease;
+		float alpha = ease;
 
 		/* Scaled dimensions centered on the hint midpoint */
 		float cw = h->w * scale;
@@ -72,8 +83,8 @@ static void draw_hook(void *arg, NSView *view)
 				h->label);
 	}
 
-	/* Request another redraw if animation is still in progress */
-	if (anim_t < 1.0f) {
+	/* Request another redraw if cascade animation still in progress */
+	if (base_elapsed < HINT_ANIM_MS + 120) {
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
 			       5 * NSEC_PER_MSEC),
 			       dispatch_get_main_queue(), ^{
@@ -87,9 +98,14 @@ void osx_hint_draw(struct screen *scr, struct hint *hints, size_t n)
 	scr->nr_hints = n;
 	memcpy(scr->hints, hints, sizeof(struct hint)*n);
 
-	/* Record appear time for animation on first draw */
-	hint_appear_time = hint_monotonic_ms();
+	/* Get cursor position for cascade wave */
+	extern struct platform *platform;
+	int cx, cy;
+	platform->mouse_get_position(NULL, &cx, &cy);
+	cursor_x_at_draw = cx;
+	cursor_y_at_draw = cy;
 
+	hint_appear_time = hint_monotonic_ms();
 	window_register_draw_hook(scr->overlay, draw_hook, scr);
 }
 
