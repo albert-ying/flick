@@ -299,6 +299,8 @@ int history_hint_mode()
 	platform->screen_get_dimensions(scr, &sw, &sh);
 
 	n = histfile_read(&ents);
+	if (n == 0)
+		return 0;
 
 	get_hint_size(scr, &w, &h);
 

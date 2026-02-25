@@ -48,11 +48,6 @@ static float spring_real_x, spring_real_y;
 /* Acceleration speed lines */
 static int is_accelerating = 0;
 
-/* Idle breathe */
-static uint64_t last_movement_ms = 0;
-#define IDLE_THRESHOLD_MS 500
-#define IDLE_TRANSITION_MS 300
-
 /* Adaptive contrast */
 static float cached_luminance = 0.0f;
 static uint64_t last_luminance_sample = 0;
@@ -148,9 +143,6 @@ static void update_visual_position(int target_x, int target_y)
 	vx += dx * LERP_FACTOR;
 	vy += dy * LERP_FACTOR;
 
-	if (dist > 2.0f)
-		last_movement_ms = get_monotonic_ms();
-
 	vel_x = dx * LERP_FACTOR * 100.0f;
 	vel_y = dy * LERP_FACTOR * 100.0f;
 
@@ -208,13 +200,6 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 		curcol = config_get("cursor_color_dark");
 	} else {
 		curcol = config_get("cursor_color");
-	}
-
-	/* Idle breathe: deepen pulse after 500ms stationary */
-	uint64_t idle_ms = get_monotonic_ms() - last_movement_ms;
-	if (idle_ms > IDLE_THRESHOLD_MS && !dragging && !scroll_is_active()) {
-		float idle_t = fminf((float)(idle_ms - IDLE_THRESHOLD_MS) / IDLE_TRANSITION_MS, 1.0f);
-		pulse_hz = 3.0f - 2.0f * idle_t;  /* 3 Hz → 1 Hz */
 	}
 
 	platform->screen_clear(scr);
@@ -457,7 +442,6 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 	trail_reset();
 	spring_active = 0;
 	is_accelerating = 0;
-	last_movement_ms = get_monotonic_ms();
 	start_mode_flash(mx, my);
 	redraw(scr, mx, my, !show_cursor, dragging);
 
@@ -489,8 +473,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 
 		/* Continuous redraw for active animations and smooth interpolation */
 		if (click_fx_active || mode_flash_active ||
-		    cur_velocity > 1.0f ||
-		    (get_monotonic_ms() - last_movement_ms) > IDLE_THRESHOLD_MS ||
+		    cur_velocity > 5.0f ||
 		    (platform->ripple_is_active && platform->ripple_is_active()) ||
 		    fabsf(vx - (float)mx) > 0.5f || fabsf(vy - (float)my) > 0.5f)
 			redraw(scr, mx, my, !show_cursor, dragging);
