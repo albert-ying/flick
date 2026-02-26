@@ -23,6 +23,8 @@ static int mode_flash_x, mode_flash_y;
 /* Smooth interpolation state */
 static float vx, vy;          /* visual cursor position (float for subpixel) */
 static int interp_initialized = 0;
+static float prev_exit_x, prev_exit_y;  /* position when last exiting normal mode */
+static int has_prev_exit = 0;
 
 #define LERP_FACTOR 0.25       /* per-tick blend: ~100ms to settle at 10ms ticks */
 
@@ -44,8 +46,20 @@ static float vel_x = 0.0f, vel_y = 0.0f;
 static int spring_active = 0;
 static float spring_real_x, spring_real_y;
 
+/* Jump smear trail (Neovide-style, time-based) */
+static int smear_active = 0;
+static float smear_from_x, smear_from_y;   /* departure point (fixed) */
+static float smear_to_x, smear_to_y;       /* destination point (fixed) */
+static uint64_t smear_start_ms = 0;
+
+#define SMEAR_DURATION_MS 400    /* total smear lifetime */
+#define SMEAR_SEGMENTS 24        /* circles along the smear */
+
 /* Acceleration speed lines */
 static int is_accelerating = 0;
+
+/* Held mouse button (0 = none) */
+static int held_btn = 0;
 
 /* Adaptive contrast */
 static float cached_luminance = 0.0f;
@@ -96,6 +110,22 @@ static void update_visual_position(int target_x, int target_y)
 		vx = (float)target_x;
 		vy = (float)target_y;
 		interp_initialized = 1;
+
+		/* Detect cross-mode teleport (hint/grid jump) */
+		if (has_prev_exit) {
+			float dx2 = (float)target_x - prev_exit_x;
+			float dy2 = (float)target_y - prev_exit_y;
+			float d2 = sqrtf(dx2 * dx2 + dy2 * dy2);
+			if (d2 > 50.0f) {
+				smear_active = 1;
+				smear_from_x = prev_exit_x;
+				smear_from_y = prev_exit_y;
+				smear_to_x = (float)target_x;
+				smear_to_y = (float)target_y;
+				smear_start_ms = get_monotonic_ms();
+			}
+			has_prev_exit = 0;
+		}
 		return;
 	}
 
@@ -112,21 +142,24 @@ static void update_visual_position(int target_x, int target_y)
 		return;
 	}
 
-	/* Teleport: hint jump, screen edge, etc. — overshoot 8% */
+	/* Teleport: hint jump, screen edge, etc. */
 	if (dist > 300.0f) {
-		float dir_x = dx / dist;
-		float dir_y = dy / dist;
-		float overshoot = dist * 0.08f;
+		/* Start smear trail from current visual pos */
+		smear_active = 1;
+		smear_from_x = vx;
+		smear_from_y = vy;
+		smear_to_x = (float)target_x;
+		smear_to_y = (float)target_y;
+		smear_start_ms = get_monotonic_ms();
 
-		vx = (float)target_x + dir_x * overshoot;
-		vy = (float)target_y + dir_y * overshoot;
+		/* Snap cursor to target (no overshoot — smear is the feedback) */
+		vx = (float)target_x;
+		vy = (float)target_y;
 		cur_velocity = 0.0f;
 		vel_x = 0.0f;
 		vel_y = 0.0f;
 		trail_reset();
-		spring_active = 1;
-		spring_real_x = (float)target_x;
-		spring_real_y = (float)target_y;
+		spring_active = 0;
 		return;
 	}
 
@@ -233,6 +266,63 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 				(int)(trail_y[idx] + 0.5f),
 				(int)(radius + 0.5f), (int)(radius + 0.5f),
 				trail_rgba);
+		}
+	}
+
+	/* Smear trail: time-based, tail contracts toward head */
+	if (smear_active && platform->screen_draw_circle) {
+		uint64_t now = get_monotonic_ms();
+		uint64_t elapsed = now - smear_start_ms;
+
+		if (elapsed >= SMEAR_DURATION_MS) {
+			smear_active = 0;
+		} else {
+			/* t: 0→1 over duration. Smooth ease-out via cubic */
+			float t = (float)elapsed / SMEAR_DURATION_MS;
+			float ease = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
+
+			/* Tail contracts from departure toward destination */
+			float tail_x = smear_from_x + (smear_to_x - smear_from_x) * ease;
+			float tail_y = smear_from_y + (smear_to_y - smear_from_y) * ease;
+
+			/* Head is always at destination */
+			float head_x = smear_to_x;
+			float head_y = smear_to_y;
+
+			float sdx = head_x - tail_x;
+			float sdy = head_y - tail_y;
+			float smear_len = sqrtf(sdx * sdx + sdy * sdy);
+
+			/* Overall fade: starts at full, fades out smoothly */
+			float global_alpha = 1.0f - t;
+
+			if (smear_len > 2.0f) {
+				const char *src = curcol;
+				if (*src == '#') src++;
+
+				int k;
+				for (k = 0; k < SMEAR_SEGMENTS; k++) {
+					float frac = (float)k / (float)(SMEAR_SEGMENTS - 1);
+					/* frac 0 = tail, frac 1 = head */
+					float px = tail_x + sdx * frac;
+					float py = tail_y + sdy * frac;
+
+					/* Smooth taper: small at tail, full at head */
+					float s = frac * frac;  /* quadratic ease-in */
+					float radius = cursz * (0.15f + 0.85f * s);
+
+					/* Alpha: gentle, peaks ~25% at head */
+					int alpha = (int)(s * global_alpha * 0.25f * 255);
+					if (alpha < 2) continue;
+
+					char rgba[16];
+					snprintf(rgba, sizeof rgba, "#%.6s%02X", src, alpha);
+					platform->screen_draw_circle(scr,
+						(int)(px + 0.5f), (int)(py + 0.5f),
+						(int)(radius + 0.5f), (int)(radius + 0.5f),
+						rgba);
+				}
+			}
 		}
 	}
 
@@ -425,7 +515,9 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 	cur_velocity = 0.0f;
 	trail_reset();
 	spring_active = 0;
+	smear_active = 0;
 	is_accelerating = 0;
+	held_btn = 0;
 	start_mode_flash(mx, my);
 	redraw(scr, mx, my, !show_cursor, dragging);
 
@@ -456,7 +548,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		}
 
 		/* Continuous redraw for active animations and smooth interpolation */
-		if (click_fx_active || mode_flash_active ||
+		if (click_fx_active || mode_flash_active || smear_active ||
 		    cur_velocity > 5.0f ||
 		    (platform->ripple_is_active && platform->ripple_is_active()) ||
 		    fabsf(vx - (float)mx) > 0.5f || fabsf(vy - (float)my) > 0.5f)
@@ -500,6 +592,11 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			else
 				mouse_normal();
 		} else if (!ev->pressed) {
+			/* Release held mouse button on key-up */
+			if (held_btn && config_input_match(ev, "buttons")) {
+				platform->mouse_up(held_btn);
+				held_btn = 0;
+			}
 			goto next;
 		}
 
@@ -557,7 +654,8 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 
 				hist_add(mx, my);
 				histfile_add(mx, my);
-				platform->mouse_click(btn);
+				platform->mouse_down(btn);
+				held_btn = btn;
 				start_click_fx(scr, mx, my);
 			} else if ((btn = config_input_match(ev, "oneshot_buttons"))) {
 				hist_add(mx, my);
@@ -588,6 +686,19 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 	}
 
 exit:
+	/* Release any held mouse button */
+	if (held_btn) {
+		platform->mouse_up(held_btn);
+		held_btn = 0;
+	}
+
+	/* Save position for cross-mode jump trace on re-entry */
+	if (interp_initialized) {
+		prev_exit_x = vx;
+		prev_exit_y = vy;
+		has_prev_exit = 1;
+	}
+
 	platform->mouse_show();
 	platform->screen_clear(scr);
 
