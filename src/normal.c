@@ -61,6 +61,10 @@ static int is_accelerating = 0;
 /* Held mouse button (0 = none) */
 static int held_btn = 0;
 
+/* Cursor fade-in on mode entry */
+static uint64_t mode_entry_ms = 0;
+#define CURSOR_FADEIN_MS 120
+
 /* Adaptive contrast */
 static float cached_luminance = 0.0f;
 static uint64_t last_luminance_sample = 0;
@@ -355,15 +359,24 @@ static void redraw(screen_t scr, int x, int y, int hide_cursor, int dragging)
 	}
 
 	if (!hide_cursor) {
+		/* Fade-in scale: cursor grows from 0 to full over CURSOR_FADEIN_MS */
+		float fadein_scale = 1.0f;
+		uint64_t since_entry = get_monotonic_ms() - mode_entry_ms;
+		if (since_entry < CURSOR_FADEIN_MS) {
+			float ft = (float)since_entry / CURSOR_FADEIN_MS;
+			/* ease-out: fast growth, gentle settle */
+			fadein_scale = 1.0f - (1.0f - ft) * (1.0f - ft);
+		}
+
 		/* Click squish: quickly inflate then shrink back */
-		int draw_cursz = cursz;
+		int draw_cursz = (int)(cursz * fadein_scale);
 		if (click_fx_active) {
 			uint64_t elapsed = get_monotonic_ms() - click_fx_start;
 			if (elapsed < CLICK_FX_DURATION_MS) {
 				float ct = (float)elapsed / CLICK_FX_DURATION_MS;
 				/* fast rise, slow fall: peak at t=0.15 */
 				float squish = (ct < 0.15f) ? ct / 0.15f : (1.0f - ct) / 0.85f;
-				draw_cursz = cursz + (int)(squish * cursz * 0.6f);
+				draw_cursz = draw_cursz + (int)(squish * cursz * 0.6f);
 			} else {
 				click_fx_active = 0;
 			}
@@ -477,6 +490,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		"bottom",
 		"buttons",
 		"copy_and_exit",
+		"cut",
 		"decelerator",
 		"down",
 		"drag",
@@ -491,13 +505,19 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		"left",
 		"middle",
 		"oneshot_buttons",
+		"paste",
 		"print",
+		"redo",
 		"right",
 		"screen",
 		"scroll_down",
+		"scroll_left",
+		"scroll_right",
 		"scroll_up",
+		"select_all",
 		"start",
 		"top",
+		"undo",
 		"up",
 	};
 
@@ -518,6 +538,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 	smear_active = 0;
 	is_accelerating = 0;
 	held_btn = 0;
+	mode_entry_ms = get_monotonic_ms();
 	start_mode_flash(mx, my);
 	redraw(scr, mx, my, !show_cursor, dragging);
 
@@ -550,6 +571,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		/* Continuous redraw for active animations and smooth interpolation */
 		if (click_fx_active || mode_flash_active || smear_active ||
 		    cur_velocity > 5.0f ||
+		    (get_monotonic_ms() - mode_entry_ms) < CURSOR_FADEIN_MS ||
 		    (platform->ripple_is_active && platform->ripple_is_active()) ||
 		    fabsf(vx - (float)mx) > 0.5f || fabsf(vy - (float)my) > 0.5f)
 			redraw(scr, mx, my, !show_cursor, dragging);
@@ -576,6 +598,22 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			if (ev->pressed) {
 				scroll_stop();
 				scroll_accelerate(SCROLL_UP);
+			} else
+				scroll_decelerate();
+		} else if (config_input_match(ev, "scroll_left")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate(SCROLL_LEFT);
+			} else
+				scroll_decelerate();
+		} else if (config_input_match(ev, "scroll_right")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate(SCROLL_RIGHT);
 			} else
 				scroll_decelerate();
 		} else if (config_input_match(ev, "accelerator")) {
@@ -643,8 +681,44 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		} else if (config_input_match(ev, "print")) {
 			printf("%d %d %s\n", mx, my, input_event_tostr(ev));
 			fflush(stdout);
-		} else { /* Mouse Buttons. */
+		} else if (config_input_match(ev, "cut")) {
+			if (platform->input_send_key) {
+				int shifted;
+				platform->input_send_key(
+					platform->input_lookup_code("x", &shifted),
+					PLATFORM_MOD_META, 1);
+			}
+		} else if (config_input_match(ev, "paste")) {
+			if (platform->input_send_key) {
+				int shifted;
+				platform->input_send_key(
+					platform->input_lookup_code("v", &shifted),
+					PLATFORM_MOD_META, 1);
+			}
+		} else if (config_input_match(ev, "undo")) {
+			if (platform->input_send_key) {
+				int shifted;
+				platform->input_send_key(
+					platform->input_lookup_code("z", &shifted),
+					PLATFORM_MOD_META, 1);
+			}
+		} else if (config_input_match(ev, "redo")) {
+			if (platform->input_send_key) {
+				int shifted;
+				platform->input_send_key(
+					platform->input_lookup_code("z", &shifted),
+					PLATFORM_MOD_META | PLATFORM_MOD_SHIFT, 1);
+			}
+		} else if (config_input_match(ev, "select_all")) {
+			if (platform->input_send_key) {
+				int shifted;
+				platform->input_send_key(
+					platform->input_lookup_code("a", &shifted),
+					PLATFORM_MOD_META, 1);
+			}
+		} else { /* Mouse Buttons + passthrough. */
 			int btn;
+			int handled = 0;
 
 			if ((btn = config_input_match(ev, "buttons"))) {
 				if (oneshot) {
@@ -657,6 +731,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				platform->mouse_down(btn);
 				held_btn = btn;
 				start_click_fx(scr, mx, my);
+				handled = 1;
 			} else if ((btn = config_input_match(ev, "oneshot_buttons"))) {
 				hist_add(mx, my);
 				platform->mouse_click(btn);
@@ -677,6 +752,11 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				}
 
 				goto exit;
+			}
+
+			/* Pass through unmatched modifier combos (Cmd+key, Ctrl+key, etc.) */
+			if (!handled && ev->mods && platform->input_send_key) {
+				platform->input_send_key(ev->code, ev->mods, 1);
 			}
 		}
 	next:

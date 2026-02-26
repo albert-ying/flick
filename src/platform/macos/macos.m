@@ -208,6 +208,34 @@ void osx_copy_selection()
 	send_key(osx_input_lookup_code("c", &shifted), 0);
 }
 
+void osx_input_send_key(uint8_t code, uint8_t mods, int pressed)
+{
+	int shifted;
+
+	if (pressed) {
+		if (mods & PLATFORM_MOD_META)
+			send_key(osx_input_lookup_code("leftmeta", &shifted), 1);
+		if (mods & PLATFORM_MOD_CONTROL)
+			send_key(osx_input_lookup_code("leftcontrol", &shifted), 1);
+		if (mods & PLATFORM_MOD_ALT)
+			send_key(osx_input_lookup_code("leftalt", &shifted), 1);
+		if (mods & PLATFORM_MOD_SHIFT)
+			send_key(osx_input_lookup_code("leftshift", &shifted), 1);
+
+		send_key(code, 1);
+		send_key(code, 0);
+
+		if (mods & PLATFORM_MOD_SHIFT)
+			send_key(osx_input_lookup_code("leftshift", &shifted), 0);
+		if (mods & PLATFORM_MOD_ALT)
+			send_key(osx_input_lookup_code("leftalt", &shifted), 0);
+		if (mods & PLATFORM_MOD_CONTROL)
+			send_key(osx_input_lookup_code("leftcontrol", &shifted), 0);
+		if (mods & PLATFORM_MOD_META)
+			send_key(osx_input_lookup_code("leftmeta", &shifted), 0);
+	}
+}
+
 void osx_scroll(int direction)
 {
 	int y = 0;
@@ -281,6 +309,7 @@ static void *mainloop(void *arg)
 		.start_ripple = osx_ripple_start,
 		.draw_ripple = osx_draw_ripple,
 		.ripple_is_active = osx_ripple_is_active,
+		.input_send_key = osx_input_send_key,
 	};
 
 	main(&platform);

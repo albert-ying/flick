@@ -91,6 +91,9 @@ struct platform {
 
 	void (*copy_selection)();
 
+	/* Optional: inject a key event with modifiers (for shortcuts + passthrough) */
+	void (*input_send_key)(uint8_t code, uint8_t mods, int pressed);
+
 	/*
 	* Draw operations may (or may not) be queued until this function
 	* is called.

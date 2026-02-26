@@ -54,6 +54,14 @@ static struct {
 
 	{ "scroll_down", "e", "Scroll down key.", OPT_KEY },
 	{ "scroll_up", "r", "Scroll up key.", OPT_KEY },
+	{ "scroll_left", "d", "Scroll left key.", OPT_KEY },
+	{ "scroll_right", "f", "Scroll right key.", OPT_KEY },
+
+	{ "cut", "unbind", "Send Cmd+X (cut).", OPT_KEY },
+	{ "paste", "unbind", "Send Cmd+V (paste).", OPT_KEY },
+	{ "undo", "unbind", "Send Cmd+Z (undo).", OPT_KEY },
+	{ "redo", "unbind", "Send Cmd+Shift+Z (redo).", OPT_KEY },
+	{ "select_all", "unbind", "Send Cmd+A (select all).", OPT_KEY },
 
 	{ "cursor_color", "#FF4500", "The color of the pointer in normal mode (rgba hex value).", OPT_STRING },
 	{ "cursor_color_dark", "#333333", "Cursor color on light backgrounds.", OPT_STRING },
