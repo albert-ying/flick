@@ -114,12 +114,16 @@ void osx_mouse_click(int btn)
 	});
 }
 
+static long held_last_up_ts = 0;
+static int held_clicks = 0;
+
 void osx_mouse_up(int btn)
 {
 	if (btn == 1)
 		dragging = 0;
 
-	do_mouse_click(btn, 0, 1);
+	do_mouse_click(btn, 0, held_clicks);
+	held_last_up_ts = get_time_ms();
 }
 
 void osx_mouse_down(int btn)
@@ -127,7 +131,12 @@ void osx_mouse_down(int btn)
 	if (btn == 1)
 		dragging = 1;
 
-	do_mouse_click(btn, 1, 1);
+	if ((get_time_ms() - held_last_up_ts) < 300)
+		held_clicks++;
+	else
+		held_clicks = 1;
+
+	do_mouse_click(btn, 1, held_clicks);
 }
 
 void osx_mouse_get_position(struct screen **_scr, int *_x, int *_y)

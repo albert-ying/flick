@@ -27,6 +27,7 @@ static struct {
 	/* Normal mode keys */
 
 	{ "exit", "esc", "Exit the currently active warpd session.", OPT_KEY },
+	{ "exit_passthrough", "unbind", "Exit and pass the key through to the system.", OPT_KEY },
 	{ "drag", "v", "Toggle drag mode (mnemonic (v)isual mode).", OPT_KEY },
 	{ "copy_and_exit", "c", "Send the copy key and exit (useful in combination with v).", OPT_KEY },
 	{ "accelerator", "a", "Increase the acceleration of the pointer while held.", OPT_KEY },

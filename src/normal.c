@@ -497,6 +497,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		"drag",
 		"end",
 		"exit",
+		"exit_passthrough",
 		"grid",
 		"hint",
 		"hint2",
@@ -716,6 +717,13 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			   config_input_match(ev, "history") ||
 			   config_input_match(ev, "hint2") ||
 			   config_input_match(ev, "hint")) {
+			goto exit;
+		} else if (config_input_match(ev, "exit_passthrough")) {
+			/* Exit flick and send the key to the system */
+			if (platform->input_send_key) {
+				platform->input_send_key(ev->code, ev->mods, 1);
+			}
+			ev = NULL;
 			goto exit;
 		} else if (config_input_match(ev, "print")) {
 			printf("%d %d %s\n", mx, my, input_event_tostr(ev));
