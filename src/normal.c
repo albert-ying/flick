@@ -489,6 +489,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		"accelerator",
 		"bottom",
 		"buttons",
+		"copy",
 		"copy_and_exit",
 		"cut",
 		"decelerator",
@@ -510,12 +511,14 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		"redo",
 		"right",
 		"screen",
+		"scroll_bottom",
 		"scroll_down",
 		"scroll_down_fast",
 		"scroll_left",
 		"scroll_left_fast",
 		"scroll_right",
 		"scroll_right_fast",
+		"scroll_top",
 		"scroll_up",
 		"scroll_up_fast",
 		"select_all",
@@ -717,6 +720,13 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		} else if (config_input_match(ev, "print")) {
 			printf("%d %d %s\n", mx, my, input_event_tostr(ev));
 			fflush(stdout);
+		} else if (config_input_match(ev, "copy")) {
+			if (platform->input_send_key) {
+				int shifted;
+				platform->input_send_key(
+					platform->input_lookup_code("c", &shifted),
+					PLATFORM_MOD_META, 1);
+			}
 		} else if (config_input_match(ev, "cut")) {
 			if (platform->input_send_key) {
 				int shifted;
@@ -751,6 +761,16 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				platform->input_send_key(
 					platform->input_lookup_code("a", &shifted),
 					PLATFORM_MOD_META, 1);
+			}
+		} else if (config_input_match(ev, "scroll_top")) {
+			if (platform->input_send_key) {
+				/* Cmd+Up arrow (macOS keycode 126) = scroll to top */
+				platform->input_send_key(126, PLATFORM_MOD_META, 1);
+			}
+		} else if (config_input_match(ev, "scroll_bottom")) {
+			if (platform->input_send_key) {
+				/* Cmd+Down arrow (macOS keycode 125) = scroll to bottom */
+				platform->input_send_key(125, PLATFORM_MOD_META, 1);
 			}
 		} else { /* Mouse Buttons + passthrough. */
 			int btn;
@@ -790,8 +810,10 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				goto exit;
 			}
 
-			/* Pass through unmatched modifier combos (Cmd+key, Ctrl+key, etc.) */
-			if (!handled && ev->mods && platform->input_send_key) {
+			/* Pass through unmatched modifier combos (Cmd+key, Ctrl+key, etc.)
+			 * Skip bare modifier key events (codes 55-63: meta, shift, ctrl, alt) */
+			int is_modifier = (ev->code >= 55 && ev->code <= 63);
+			if (!handled && !is_modifier && ev->mods && platform->input_send_key) {
 				platform->input_send_key(ev->code, ev->mods, 1);
 			}
 		}

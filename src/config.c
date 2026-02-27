@@ -62,11 +62,15 @@ static struct {
 	{ "scroll_left_fast", "D", "Fast scroll left key.", OPT_KEY },
 	{ "scroll_right_fast", "F", "Fast scroll right key.", OPT_KEY },
 
+	{ "copy", "unbind", "Send Cmd+C (copy, stay in mode).", OPT_KEY },
 	{ "cut", "unbind", "Send Cmd+X (cut).", OPT_KEY },
 	{ "paste", "unbind", "Send Cmd+V (paste).", OPT_KEY },
 	{ "undo", "unbind", "Send Cmd+Z (undo).", OPT_KEY },
 	{ "redo", "unbind", "Send Cmd+Shift+Z (redo).", OPT_KEY },
 	{ "select_all", "unbind", "Send Cmd+A (select all).", OPT_KEY },
+
+	{ "scroll_top", "unbind", "Scroll to top of page (sends Cmd+Up).", OPT_KEY },
+	{ "scroll_bottom", "unbind", "Scroll to bottom of page (sends Cmd+Down).", OPT_KEY },
 
 	{ "cursor_color", "#FF4500", "The color of the pointer in normal mode (rgba hex value).", OPT_STRING },
 	{ "cursor_color_dark", "#333333", "Cursor color on light backgrounds.", OPT_STRING },
