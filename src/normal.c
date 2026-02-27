@@ -511,9 +511,13 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		"right",
 		"screen",
 		"scroll_down",
+		"scroll_down_fast",
 		"scroll_left",
+		"scroll_left_fast",
 		"scroll_right",
+		"scroll_right_fast",
 		"scroll_up",
+		"scroll_up_fast",
 		"select_all",
 		"start",
 		"top",
@@ -614,6 +618,38 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			if (ev->pressed) {
 				scroll_stop();
 				scroll_accelerate(SCROLL_RIGHT);
+			} else
+				scroll_decelerate();
+		} else if (config_input_match(ev, "scroll_down_fast")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate_fast(SCROLL_DOWN);
+			} else
+				scroll_decelerate();
+		} else if (config_input_match(ev, "scroll_up_fast")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate_fast(SCROLL_UP);
+			} else
+				scroll_decelerate();
+		} else if (config_input_match(ev, "scroll_left_fast")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate_fast(SCROLL_LEFT);
+			} else
+				scroll_decelerate();
+		} else if (config_input_match(ev, "scroll_right_fast")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate_fast(SCROLL_RIGHT);
 			} else
 				scroll_decelerate();
 		} else if (config_input_match(ev, "accelerator")) {

@@ -57,6 +57,11 @@ static struct {
 	{ "scroll_left", "d", "Scroll left key.", OPT_KEY },
 	{ "scroll_right", "f", "Scroll right key.", OPT_KEY },
 
+	{ "scroll_down_fast", "E", "Fast scroll down key.", OPT_KEY },
+	{ "scroll_up_fast", "R", "Fast scroll up key.", OPT_KEY },
+	{ "scroll_left_fast", "D", "Fast scroll left key.", OPT_KEY },
+	{ "scroll_right_fast", "F", "Fast scroll right key.", OPT_KEY },
+
 	{ "cut", "unbind", "Send Cmd+X (cut).", OPT_KEY },
 	{ "paste", "unbind", "Send Cmd+V (paste).", OPT_KEY },
 	{ "undo", "unbind", "Send Cmd+Z (undo).", OPT_KEY },

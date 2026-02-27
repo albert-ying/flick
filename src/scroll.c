@@ -85,6 +85,20 @@ void scroll_accelerate(int _direction)
 	}
 }
 
+void scroll_accelerate_fast(int _direction)
+{
+	direction = _direction;
+	a = a0 * 5;
+
+	if (v == 0) {
+		d = 0;
+		traveled = 0;
+		v = v0 * 5;
+	} else {
+		v *= 3;
+	}
+}
+
 int scroll_is_active(void)
 {
 	return v > 0;

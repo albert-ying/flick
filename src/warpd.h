@@ -113,6 +113,7 @@ void mouse_slow();
 void scroll_tick();
 void scroll_stop();
 void scroll_accelerate(int direction);
+void scroll_accelerate_fast(int direction);
 void scroll_decelerate();
 int scroll_is_active(void);
 
