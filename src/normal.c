@@ -527,6 +527,8 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 		"top",
 		"undo",
 		"up",
+		"zoom_in",
+		"zoom_out",
 	};
 
 	platform->input_grab_keyboard();
@@ -656,6 +658,22 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				scroll_accelerate_fast(SCROLL_RIGHT);
 			} else
 				scroll_decelerate();
+		} else if (config_input_match(ev, "zoom_in")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate(ZOOM_IN);
+			} else
+				scroll_decelerate();
+		} else if (config_input_match(ev, "zoom_out")) {
+			redraw(scr, mx, my, !show_cursor, dragging);
+
+			if (ev->pressed) {
+				scroll_stop();
+				scroll_accelerate(ZOOM_OUT);
+			} else
+				scroll_decelerate();
 		} else if (config_input_match(ev, "accelerator")) {
 			if (ev->pressed) {
 				mouse_fast();
@@ -772,13 +790,13 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			}
 		} else if (config_input_match(ev, "scroll_top")) {
 			if (platform->input_send_key) {
-				/* Cmd+Up arrow (macOS keycode 126) = scroll to top */
-				platform->input_send_key(126, PLATFORM_MOD_META, 1);
+				/* Cmd+Up arrow: macOS keycode 126, internal code 127 (keycode+1) */
+				platform->input_send_key(127, PLATFORM_MOD_META, 1);
 			}
 		} else if (config_input_match(ev, "scroll_bottom")) {
 			if (platform->input_send_key) {
-				/* Cmd+Down arrow (macOS keycode 125) = scroll to bottom */
-				platform->input_send_key(125, PLATFORM_MOD_META, 1);
+				/* Cmd+Down arrow: macOS keycode 125, internal code 126 (keycode+1) */
+				platform->input_send_key(126, PLATFORM_MOD_META, 1);
 			}
 		} else { /* Mouse Buttons + passthrough. */
 			int btn;

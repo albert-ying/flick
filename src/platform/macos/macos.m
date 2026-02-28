@@ -5,6 +5,7 @@
  */
 
 #include "macos.h"
+#include <mach/mach_time.h>
 
 static NSDictionary *get_font_attrs(const char *family, NSColor *color, int h)
 {
@@ -236,6 +237,54 @@ void osx_input_send_key(uint8_t code, uint8_t mods, int pressed)
 	}
 }
 
+/*
+ * Undocumented CGEvent fields for gesture events, reverse-engineered from
+ * ScrollToZoom (alphaArgon) and IOKit headers.
+ */
+enum {
+	kCGEventGesture             = 29,
+	kCGGestureEventHIDType      = 110,
+	kCGGestureEventZoomValue    = 113,
+	kCGGestureEventPhase        = 132,
+};
+
+enum {
+	kIOHIDEventTypeZoom = 8,
+};
+
+/* Gesture phases matching CGGesturePhase */
+enum {
+	kGesturePhaseBegan   = 1,
+	kGesturePhaseChanged = 2,
+	kGesturePhaseEnded   = 4,
+};
+
+static int zoom_gesture_active = 0;
+
+static void post_zoom_gesture(CGPoint pos, double mag, int phase)
+{
+	CGEventRef ev = CGEventCreate(NULL);
+	CGEventSetType(ev, kCGEventGesture);
+	CGEventSetLocation(ev, pos);
+	CGEventSetTimestamp(ev, mach_absolute_time());
+	CGEventSetIntegerValueField(ev, kCGGestureEventHIDType, kIOHIDEventTypeZoom);
+	CGEventSetIntegerValueField(ev, kCGGestureEventPhase, phase);
+	CGEventSetDoubleValueField(ev, kCGGestureEventZoomValue, mag);
+	CGEventPost(kCGSessionEventTap, ev);
+	CFRelease(ev);
+}
+
+void osx_zoom_end(void)
+{
+	if (zoom_gesture_active) {
+		CGEventRef posEv = CGEventCreate(NULL);
+		CGPoint pos = CGEventGetLocation(posEv);
+		CFRelease(posEv);
+		post_zoom_gesture(pos, 0, kGesturePhaseEnded);
+		zoom_gesture_active = 0;
+	}
+}
+
 void osx_scroll(int direction)
 {
 	int y = 0;
@@ -254,11 +303,30 @@ void osx_scroll(int direction)
 	case SCROLL_LEFT:
 		x = 1;
 		break;
+	case ZOOM_IN:
+	case ZOOM_OUT:
+		break;
 	}
 
-	CGEventRef ev = CGEventCreateScrollWheelEvent(
-	    NULL, kCGScrollEventUnitPixel, 2, y, x);
-	CGEventPost(kCGHIDEventTap, ev);
+	if (direction == ZOOM_IN || direction == ZOOM_OUT) {
+		CGEventRef posEv = CGEventCreate(NULL);
+		CGPoint pos = CGEventGetLocation(posEv);
+		CFRelease(posEv);
+
+		double mag = (direction == ZOOM_IN) ? 0.02 : -0.02;
+
+		if (!zoom_gesture_active) {
+			post_zoom_gesture(pos, mag, kGesturePhaseBegan);
+			zoom_gesture_active = 1;
+		} else {
+			post_zoom_gesture(pos, mag, kGesturePhaseChanged);
+		}
+	} else {
+		CGEventRef ev = CGEventCreateScrollWheelEvent(
+		    NULL, kCGScrollEventUnitPixel, 2, y, x);
+		CGEventPost(kCGHIDEventTap, ev);
+		CFRelease(ev);
+	}
 }
 
 void osx_commit()
@@ -304,6 +372,7 @@ static void *mainloop(void *arg)
 		.screen_get_dimensions = osx_screen_get_dimensions,
 		.screen_list = osx_screen_list,
 		.scroll = osx_scroll,
+		.zoom_end = osx_zoom_end,
 		.monitor_file = osx_monitor_file,
 		.sample_bg_luminance = osx_sample_bg_luminance,
 		.start_ripple = osx_ripple_start,

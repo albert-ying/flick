@@ -19,6 +19,8 @@
 #define SCROLL_RIGHT 2
 #define SCROLL_LEFT 3
 #define SCROLL_UP 4
+#define ZOOM_IN 5
+#define ZOOM_OUT 6
 
 #define MAX_HINTS 2048
 #define MAX_SCREENS 32
@@ -88,6 +90,9 @@ struct platform {
 	void (*hint_draw)(struct screen *scr, struct hint *hints, size_t n);
 
 	void (*scroll)(int direction);
+
+	/* Optional: end an active zoom gesture (sends ended phase) */
+	void (*zoom_end)();
 
 	void (*copy_selection)();
 

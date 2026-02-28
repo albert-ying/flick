@@ -254,18 +254,32 @@ uint8_t osx_input_lookup_code(const char *name, int *shifted)
 static void _send_key(uint8_t code, int pressed)
 {
 	static int command_down = 0;
+	static int shift_down = 0;
+	static int control_down = 0;
+	static int alt_down = 0;
 
-	/* left/right command keys */
-	if (code == 56 || code == 55)
-		command_down += pressed ? 1 : -1;
+	/* Track all modifier key states (left/right variants), clamp to 0 */
+	if (code == 55 || code == 56)
+		command_down = pressed ? command_down + 1 : (command_down > 0 ? command_down - 1 : 0);
+	if (code == 57 || code == 61)
+		shift_down = pressed ? shift_down + 1 : (shift_down > 0 ? shift_down - 1 : 0);
+	if (code == 60 || code == 63)
+		control_down = pressed ? control_down + 1 : (control_down > 0 ? control_down - 1 : 0);
+	if (code == 59 || code == 62)
+		alt_down = pressed ? alt_down + 1 : (alt_down > 0 ? alt_down - 1 : 0);
 
 	/* events should bypass any active grabs */
 	passthrough_keys[code]++;
 	CGEventRef ev = CGEventCreateKeyboardEvent(NULL, code - 1, pressed);
 
 	/* quartz inspects the event flags instead of maintaining its own state */
-	if (command_down)
-		CGEventSetFlags(ev, kCGEventFlagMaskCommand);
+	CGEventFlags flags = 0;
+	if (command_down > 0) flags |= kCGEventFlagMaskCommand;
+	if (shift_down > 0) flags |= kCGEventFlagMaskShift;
+	if (control_down > 0) flags |= kCGEventFlagMaskControl;
+	if (alt_down > 0) flags |= kCGEventFlagMaskAlternate;
+	if (flags)
+		CGEventSetFlags(ev, flags);
 
 	CGEventPost(kCGHIDEventTap, ev);
 	CFRelease(ev);

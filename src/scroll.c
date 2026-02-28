@@ -44,6 +44,8 @@ void scroll_tick()
 	v += a * (t / 1000);
 
 	if (v < 0) {
+		if (platform->zoom_end)
+			platform->zoom_end();
 		v = 0;
 		d = 0;
 		traveled = 0;
@@ -62,6 +64,8 @@ void scroll_tick()
 
 void scroll_stop()
 {
+	if (platform->zoom_end)
+		platform->zoom_end();
 	v = 0;
 	a = 0;
 	traveled = 0;
