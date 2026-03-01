@@ -89,7 +89,7 @@ struct platform {
 	/* Hints are centered around the provided x,y coordinates. */
 	void (*hint_draw)(struct screen *scr, struct hint *hints, size_t n);
 
-	void (*scroll)(int direction);
+	void (*scroll)(int direction, int amount);
 
 	/* Optional: end an active zoom gesture (sends ended phase) */
 	void (*zoom_end)();

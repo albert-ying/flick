@@ -160,7 +160,7 @@ void osx_screen_clear(screen_t scr);
 void osx_screen_list(screen_t scr[MAX_SCREENS], size_t *n);
 void osx_init_hint(const char *bg, const char *fg, int border_radius, const char *font_family);
 void osx_hint_draw(struct screen *scr, struct hint *hints, size_t n);
-void osx_scroll(int direction);
+void osx_scroll(int direction, int amount);
 void osx_copy_selection();
 void osx_input_send_key(uint8_t code, uint8_t mods, int pressed);
 void osx_monitor_file(const char *_path);

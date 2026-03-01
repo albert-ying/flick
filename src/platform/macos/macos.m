@@ -285,23 +285,23 @@ void osx_zoom_end(void)
 	}
 }
 
-void osx_scroll(int direction)
+void osx_scroll(int direction, int amount)
 {
 	int y = 0;
 	int x = 0;
 
 	switch (direction) {
 	case SCROLL_UP:
-		y = 1;
+		y = amount;
 		break;
 	case SCROLL_DOWN:
-		y = -1;
+		y = -amount;
 		break;
 	case SCROLL_RIGHT:
-		x = -1;
+		x = -amount;
 		break;
 	case SCROLL_LEFT:
-		x = 1;
+		x = amount;
 		break;
 	case ZOOM_IN:
 	case ZOOM_OUT:
@@ -313,7 +313,7 @@ void osx_scroll(int direction)
 		CGPoint pos = CGEventGetLocation(posEv);
 		CFRelease(posEv);
 
-		double mag = (direction == ZOOM_IN) ? 0.02 : -0.02;
+		double mag = (direction == ZOOM_IN) ? 0.02 * amount : -0.02 * amount;
 
 		if (!zoom_gesture_active) {
 			post_zoom_gesture(pos, mag, kGesturePhaseBegan);

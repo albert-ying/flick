@@ -90,6 +90,7 @@ static CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type,
 
 	/* macOS will timeout the event tap, so we have to re-enable it :/ */
 	if (type == kCGEventTapDisabledByTimeout) {
+		fprintf(stderr, "[flick] event tap disabled by timeout, re-enabling\n");
 		CGEventTapEnable(tap, true);
 		return event;
 	}
@@ -131,10 +132,11 @@ static CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type,
 	case kCGEventKeyUp:
 		/* Skip repeat events */
 		if (CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat)) {
-			if (grabbed)
+			if (grabbed) {
 				return nil;
-			else
+			} else {
 				return event;
+			}
 		}
 
 		/*
@@ -197,11 +199,30 @@ static CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type,
 			return nil;
 		}
 
+	/*
+	 * Right control bypass: when held during a grab, let all events
+	 * pass through to the system so the user can send arbitrary
+	 * right-ctrl combos (e.g. RCtrl+W) without flick intercepting them.
+	 */
+	static int rctrl_bypass = 0;
+
+	if (code == 63 && grabbed) { /* right control (internal code) */
+		int was_bypass = rctrl_bypass;
+		rctrl_bypass = pressed;
+		if (pressed || was_bypass)
+			return event; /* let both press and release through */
+	}
+
 	if (grabbed) {
+		if (rctrl_bypass)
+			return event; /* bypass: let everything through */
+
 		/* If the keydown occurred before the grab, allow the keyup to pass through. */
 		if (pressed || pressed_timestamps[code] > grabbed_time) {
 			return nil;
 		}
+		fprintf(stderr, "[tap] LEAK: code=%d pressed=%d type=%d ts=%ld gt=%ld\n",
+			code, pressed, (int)type, pressed_timestamps[code], grabbed_time);
 	}
 	return event;
 }

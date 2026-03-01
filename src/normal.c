@@ -587,6 +587,23 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 			redraw(scr, mx, my, !show_cursor, dragging);
 
 		scroll_tick();
+
+		/*
+		 * Right control bypass: when right control is held, all events
+		 * are passed through to the system by the event tap. Skip
+		 * processing here so flick doesn't also act on them.
+		 */
+		{
+			static int rctrl_active = 0;
+			if (ev && ev->code == 63) { /* right control */
+				rctrl_active = ev->pressed;
+				goto next;
+			}
+			if (rctrl_active && ev) {
+				goto next;
+			}
+		}
+
 		if (mouse_process_key(ev, "up", "down", "left", "right")) {
 			redraw(scr, mx, my, !show_cursor, dragging);
 			continue;
@@ -694,9 +711,7 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				held_btn = 0;
 			}
 			goto next;
-		}
-
-		if (config_input_match(ev, "top"))
+		} else if (config_input_match(ev, "top"))
 			move(scr, mx, cursz / 2, !show_cursor, dragging);
 		else if (config_input_match(ev, "bottom"))
 			move(scr, mx, sh - cursz / 2, !show_cursor, dragging);
@@ -836,10 +851,12 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 				goto exit;
 			}
 
-			/* Pass through unmatched modifier combos (Cmd+key, Ctrl+key, etc.)
-			 * Skip bare modifier key events (codes 55-63: meta, shift, ctrl, alt) */
+			/* Pass through unmatched Cmd/Ctrl/Alt combos to the system.
+			 * Skip bare modifier keys and Shift-only combos (those are
+			 * just uppercase letters, not system shortcuts). */
 			int is_modifier = (ev->code >= 55 && ev->code <= 63);
-			if (!handled && !is_modifier && ev->mods && platform->input_send_key) {
+			int has_cmd_ctrl_alt = ev->mods & (PLATFORM_MOD_META | PLATFORM_MOD_CONTROL | PLATFORM_MOD_ALT);
+			if (!handled && !is_modifier && has_cmd_ctrl_alt && platform->input_send_key) {
 				platform->input_send_key(ev->code, ev->mods, 1);
 			}
 		}
@@ -850,6 +867,8 @@ struct input_event *normal_mode(struct input_event *start_ev, int oneshot)
 	}
 
 exit:
+	scroll_stop();
+
 	/* Release any held mouse button */
 	if (held_btn) {
 		platform->mouse_up(held_btn);
